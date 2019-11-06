@@ -43,6 +43,7 @@ def main():
 
   #execute plan
   arm_ctrl.executePlan(plan)
+  arm_ctrl.pickupBlock()
 
   # When finished shut down moveit_commander.
   moveit_commander.roscpp_shutdown()
