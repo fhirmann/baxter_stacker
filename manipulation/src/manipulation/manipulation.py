@@ -31,24 +31,25 @@ def main():
 
   #init position and gripper init
   arm_ctrl.moveToInitlPosition(arm='left')
-  arm_ctrl.initGripper(arm='left', gripper_open=True)
+  arm_ctrl.initGripper(arm='left', gripper_open=True, block=False)
   arm_ctrl.moveToInitlPosition(arm='right')
-  arm_ctrl.initGripper(arm='right', gripper_open=True)
+  arm_ctrl.initGripper(arm='right', gripper_open=True, block=False)
 
   #block pose
   block_pose = Pose()
   block_pose.position.x = 0.81
   block_pose.position.y = 0.065
-  block_pose.position.z = -0.16
+  block_pose.position.z = -0.11
   
   #plan block pickup
   plan = arm_ctrl.planBlockPickup(block_pose, 0, arm='left')
- 
   #execute plan
   arm_ctrl.executePlan(plan)
+
   rospy.sleep(2)
   arm_ctrl.pickupBlock(arm='left')
 
+  '''
   scene_block = scene_object()
   scene_block.name = "block_1"
   scene_block.color = "yellow"
@@ -73,7 +74,7 @@ def main():
   arm_ctrl.executePlan(plan)
   rospy.sleep(2)
   arm_ctrl.releaseBlock(arm='left')
-
+  '''
   # When finished shut down moveit_commander.
   moveit_commander.roscpp_shutdown()
   moveit_commander.os._exit(0)
