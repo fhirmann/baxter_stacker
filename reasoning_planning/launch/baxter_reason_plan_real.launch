@@ -1,0 +1,82 @@
+<?xml version="1.0"?>
+<launch>
+
+	<!-- arguments -->
+	<arg name="domain_path"	default="$(find reasoning_planning)/resources/domain_baxter.pddl" />
+	<arg name="problem_path"	default="$(find reasoning_planning)/resources/problem_baxter.pddl" />
+
+	<!-- knowledge base -->
+	<node name="rosplan_knowledge_base" pkg="rosplan_knowledge_base" type="knowledgeBase" respawn="false" output="screen">
+		<param name="domain_path" value="$(arg domain_path)" />
+		<param name="problem_path" value="$(arg problem_path)" />
+		<param name="database_path" value="$(find reasoning_planning)/common/mongoDB/" />
+		<!-- conditional planning flags -->
+		<param name="use_unknowns" value="false" />
+	</node>
+
+	<!-- problem generation -->
+	<include file="$(find rosplan_planning_system)/launch/includes/problem_interface.launch">
+		<arg name="knowledge_base"   value="rosplan_knowledge_base" />
+		<arg name="domain_path"      value="$(arg domain_path)" />
+		<arg name="problem_path"     value="$(find reasoning_planning)/common/problem.pddl" />
+		<arg name="problem_topic"    value="problem_instance" />
+	</include>
+	
+	<!-- scene database (MongoDB) -->
+	<include file="$(find mongodb_store)/launch/mongodb_store.launch">
+		<arg name="db_path" value="$(find reasoning_planning)/common/mongoDB/"/>
+	</include>
+
+	<!-- planner interface -->
+	<include file="$(find rosplan_planning_system)/launch/includes/planner_interface.launch">
+		<arg name="use_problem_topic"    value="true" />
+		<arg name="problem_topic"        value="/rosplan_problem_interface/problem_instance" />
+		<arg name="planner_topic"        value="planner_output" />
+		<arg name="domain_path"          value="$(arg domain_path)" />
+		<arg name="problem_path"         value="$(find reasoning_planning)/common/problem.pddl" />
+		<arg name="data_path"            value="$(find reasoning_planning)/common/" />
+		<arg name="planner_command"      value="timeout 10 $(find rosplan_planning_system)/common/bin/popf DOMAIN PROBLEM" />
+	</include>
+
+	<!-- plan parsing -->
+	<node name="rosplan_parsing_interface" pkg="rosplan_planning_system" type="pddl_simple_plan_parser" respawn="false" output="screen">
+		<param name="knowledge_base" value="rosplan_knowledge_base" />
+		<param name="planner_topic"  value="/rosplan_planner_interface/planner_output" />
+		<param name="plan_topic"     value="complete_plan" />
+	</node>
+
+	<!-- plan dispatching -->
+	<node name="rosplan_plan_dispatcher" pkg="rosplan_planning_system" type="pddl_simple_plan_dispatcher" respawn="false" output="screen">
+		<param name="knowledge_base"        value="rosplan_knowledge_base" />
+		<param name="plan_topic"            value="/rosplan_parsing_interface/complete_plan" />
+		<param name="action_dispatch_topic" value="action_dispatch" />
+		<param name="action_feedback_topic" value="action_feedback" />
+	</node>
+
+	<!-- real actions-->
+	<node name="rosplan_interface_pick_up" pkg="reasoning_planning" type="pickUpAction" respawn="false" output="screen">
+		<param name="knowledge_base"		value="rosplan_knowledge_base" />
+		<param name="pddl_action_name"		value="pick_up" />
+		<param name="action_dispatch_topic" value="/rosplan_plan_dispatcher/action_dispatch" />
+		<param name="action_feedback_topic" value="/rosplan_plan_dispatcher/action_feedback" />
+	</node>
+	<node name="rosplan_interface_put_down" pkg="reasoning_planning" type="putDownAction" respawn="false" output="screen">
+		<param name="knowledge_base"		value="rosplan_knowledge_base" />
+		<param name="pddl_action_name"		value="put_down" />
+		<param name="action_dispatch_topic" value="/rosplan_plan_dispatcher/action_dispatch" />
+		<param name="action_feedback_topic" value="/rosplan_plan_dispatcher/action_feedback" />
+	</node>
+	<node name="rosplan_interface_stack" pkg="reasoning_planning" type="stackAction" respawn="false" output="screen">
+		<param name="knowledge_base"		value="rosplan_knowledge_base" />
+		<param name="pddl_action_name"		value="stack" />
+		<param name="action_dispatch_topic" value="/rosplan_plan_dispatcher/action_dispatch" />
+		<param name="action_feedback_topic" value="/rosplan_plan_dispatcher/action_feedback" />
+	</node>
+	<node name="rosplan_interface_unstack" pkg="reasoning_planning" type="unstackAction" respawn="false" output="screen">
+		<param name="knowledge_base"		value="rosplan_knowledge_base" />
+		<param name="pddl_action_name"		value="unstack" />
+		<param name="action_dispatch_topic" value="/rosplan_plan_dispatcher/action_dispatch" />
+		<param name="action_feedback_topic" value="/rosplan_plan_dispatcher/action_feedback" />
+	</node>
+
+</launch>
