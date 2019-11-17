@@ -1,0 +1,23 @@
+#!/usr/bin/env python
+
+import rospy
+
+#import rosplan_pytools
+
+from rosplan_pytools.controller import knowledge_base as kb
+
+
+def main():
+    rospy.init_node("reasoning_planning_pytools")
+    kb.initialize()
+    kb.reset()
+
+    #kb.add_instance('loc1','location')
+    kb.add_goal("hand_empty")
+
+if __name__=="__main__":
+    main()
+  
+
+
+
