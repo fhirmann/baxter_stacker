@@ -1,16 +1,12 @@
-import sys
-import copy
-import rospy
+
 import moveit_commander
-from moveit_msgs.msg import RobotTrajectory, Grasp
 import baxter_interface
 from baxter_interface import CHECK_VERSION
 
 class kmr19ArmCtrl:
   def __init__(self):
-    self.robot = moveit_commander.RobotCommander()
-
     self.group = moveit_commander.MoveGroupCommander("both_arms")
+
     self.left_current_pose = self.group.get_current_pose(end_effector_link='left_gripper').pose
     self.right_current_pose = self.group.get_current_pose(end_effector_link='right_gripper').pose
 
@@ -62,12 +58,20 @@ class kmr19ArmCtrl:
         #execute plan
         self.group.go(wait=True)
         self.group.stop()
+        self.group.clear_pose_targets()
         success = True
         break
 
     return success
 
-  def planBlockPickup(self, block_pose, height_dif, arm='left'):
+  def planBlockPickup(self, block_pose, height_dif=0, arm='left'):
+    '''
+    :param block_pose: PoseStamped() of mid-point of block to pick up
+    :param height_dif: height difference to block mid-point when closing gripper
+    :param arm: defines which arm should be used
+    :return: motion plan for pick up procedure, plan maybe not valid --> check somewhere else
+    '''
+
     #get current pose
     current_pose = self.left_current_pose
     link = 'left_gripper'
@@ -85,9 +89,9 @@ class kmr19ArmCtrl:
     target_pose.orientation.w = 0
 
     # set x/y waypoint
-    target_pose.position.x = block_pose.position.x
-    target_pose.position.y = block_pose.position.y
-    target_pose.position.z = block_pose.position.z + height_dif
+    target_pose.position.x = block_pose.pose.position.x
+    target_pose.position.y = block_pose.pose.position.y
+    target_pose.position.z = block_pose.pose.position.z + height_dif
     
     #set target pose in MoveIt Commander
     self.group.set_pose_target(target_pose, link)
@@ -144,29 +148,6 @@ class kmr19ArmCtrl:
     self.left_current_pose = self.group.get_current_pose(end_effector_link='left_gripper').pose
     self.right_current_pose = self.group.get_current_pose(end_effector_link='right_gripper').pose
 
-    grasps = Grasp()
-    grasps.grasp_pose.header.frame_id = "/base"
-    grasps.grasp_pose.pose.position.x = 0.81
-    grasps.grasp_pose.pose.position.y = 0.065
-    grasps.grasp_pose.pose.position.z = -0.16
-    grasps.grasp_pose.pose.orientation.x = 0
-    grasps.grasp_pose.pose.orientation.y = 1
-    grasps.grasp_pose.pose.orientation.z = 0
-    grasps.grasp_pose.pose.orientation.w = 0
-    grasps.allowed_touch_objects.append("table")
-
-    grasps.pre_grasp_approach.direction.header.frame_id = "/base"
-    grasps.pre_grasp_approach.direction.vector.z = 1.0
-    grasps.pre_grasp_approach.min_distance = 0.01
-    grasps.pre_grasp_approach.desired_distance = 0.02
-
-    grasps.post_grasp_retreat.direction.header.frame_id = "/base"
-    grasps.post_grasp_retreat.direction.vector.z = 1.0
-    grasps.post_grasp_retreat.min_distance = 0.1
-    grasps.post_grasp_retreat.desired_distance = 0.2
-
-    self.group.pick("block_1", grasps)
-
     return success
 
   def initGripper(self, arm='left', gripper_open=True, block = True):
@@ -213,7 +194,6 @@ class kmr19ArmCtrl:
 
       if(self.right_gripper.position() != self.right_gripper_close_pos):
         success = True
-
     else:
       print("[kmr19ArmCtrl pickupBlock]: specify which arm should pickup block")
 
@@ -224,4 +204,3 @@ class kmr19ArmCtrl:
       self.left_gripper.open(block=True)
     if(arm == 'right'):
       self.right_gripper.open(block=True)
-

@@ -1,0 +1,2 @@
+from manipulation_main import kmr19_manipulation_server
+

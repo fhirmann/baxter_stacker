@@ -6,6 +6,7 @@ from baxter_interface import CHECK_VERSION
 class kmr19RobotCtrl:
   def __init__(self):
     self.rs = baxter_interface.RobotEnable(CHECK_VERSION)
+    self.hold_block = False
 
   def enableRobot(self):
     self.rs.enable()

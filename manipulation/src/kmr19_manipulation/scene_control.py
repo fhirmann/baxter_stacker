@@ -8,6 +8,8 @@ class kmr19SceneControl:
   def __init__(self):
     self.scene = moveit_commander.PlanningSceneInterface()
     self.scene_blocks = []
+    self.block_id = 0
+    self.robot = moveit_commander.RobotCommander()
 
   def addFixedSceneObjects(self):
     rospy.sleep(0.1)  #sleep needed for scene manipulation
@@ -21,20 +23,20 @@ class kmr19SceneControl:
 
     new_obj = scene_object()    
     new_obj.name = "table"
+    new_obj.id = self.block_id
     new_obj.color = "white"
-    new_obj.mid_pose.header.frame_id = "/base"
+    new_obj.mid_pose.header.frame_id = "/world"
     new_obj.mid_pose.pose.position.x = 0.93
     new_obj.mid_pose.pose.position.y = 0.3
     new_obj.mid_pose.pose.position.z = -0.55 
     new_obj.size = (0.8, 1.6, 0.7)
     self.addBlockToScene(new_obj)
-    #self.scene.attach_box('base', "table", touch_links=['pedestal'])
-    #self.checkObject(10, "table", obj_is_attached=True, obj_is_known=False)
 
     new_obj = scene_object()    
     new_obj.name = "block_1"
+    new_obj.id = self.block_id
     new_obj.color = "yellow"
-    new_obj.mid_pose.header.frame_id = "/base"
+    new_obj.mid_pose.header.frame_id = "/world"
     new_obj.mid_pose.pose.position.x = 0.82
     new_obj.mid_pose.pose.position.y = 0.065
     new_obj.mid_pose.pose.position.z = -0.16 
@@ -46,21 +48,42 @@ class kmr19SceneControl:
   def addBlockToScene(self, block):
     #add block to SceneControl
     self.scene_blocks.append(block)
+    self.block_id += 1
+
     #add to MoveIt scene
     self.scene.add_box( block.name, block.mid_pose, block.size )
     #wait until scene is changed
     self.checkObject(10, block.name, obj_is_attached=False, obj_is_known=True)
 
-  def attachBlockToArm(self, arm='left'):
+  def isBlockInScene(self, id):
+    for index, item in enumerate(self.scene_blocks):
+      if item.id == id:
+        return True, item
+
+    return False, scene_object()
+
+  def removeBlockFromPlanningScene(self, block_name=""):
+    self.scene.remove_world_object(block_name)
+    return self.checkObject(10, block_name, obj_is_attached=False, obj_is_known=False)
+
+  def addBlockToPlanningScene(self, block):
+    # add to MoveIt scene
+    self.scene.add_box(block.name, block.mid_pose, block.size)
+    # wait until scene is changed
+    return self.checkObject(10, block.name, obj_is_attached=False, obj_is_known=True)
+
+  def attachBlockToArm(self, block, arm='left'):
     if(arm=='left'):
       eef_link = 'left_gripper'
+      touch_links = self.robot.get_link_names(group='left_arm')
     if(arm=='right'):
       eef_link = 'right_gripper'
-    
+      touch_links = self.robot.get_link_names(group='right_arm')
+
     #attach in MoveIt scene
-    self.scene.attach_box(eef_link, "block_1", touch_links=eef_link)
-    #call recommended function
-    self.checkObject(10, "block_1", obj_is_attached=True, obj_is_known=True)
+    self.scene.attach_box(eef_link, block.name, touch_links=touch_links)
+    #check if object action was successful
+    return self.checkObject(10, block.name, obj_is_attached=True, obj_is_known=False)
 
   def checkObject(self, timeout, name, obj_is_attached=False, obj_is_known=False):
     #copied from http://docs.ros.org/kinetic/api/moveit_tutorials/html/doc/move_group_python_interface/move_group_python_interface_tutorial.html
@@ -106,9 +129,11 @@ class kmr19SceneControl:
     return False
 
 class scene_object:
-  def __init__(self, name="", color="", size=(1,1,1)):
+  def __init__(self, name="", id=0, color="", size=(1,1,1)):
     self.mid_pose = PoseStamped()
     self.color = color
     self.name = name
+    self.id = id
     self.size = size
+    #self.shape
 
