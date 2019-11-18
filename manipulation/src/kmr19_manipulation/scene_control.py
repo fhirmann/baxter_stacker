@@ -37,8 +37,8 @@ class kmr19SceneControl:
     new_obj.id = self.block_id
     new_obj.color = "yellow"
     new_obj.mid_pose.header.frame_id = "/world"
-    new_obj.mid_pose.pose.position.x = 0.82
-    new_obj.mid_pose.pose.position.y = 0.065
+    new_obj.mid_pose.pose.position.x = 0.80
+    new_obj.mid_pose.pose.position.y = 0.08
     new_obj.mid_pose.pose.position.z = -0.16 
     new_obj.size = (0.04, 0.04, 0.08)
     self.addBlockToScene(new_obj)
@@ -81,7 +81,7 @@ class kmr19SceneControl:
       touch_links = self.robot.get_link_names(group='right_arm')
 
     #attach in MoveIt scene
-    self.scene.attach_box(eef_link, block.name, touch_links=touch_links)
+    self.scene.attach_box(eef_link, block.name, pose=block.mid_pose, size=block.size, touch_links=touch_links)
     #check if object action was successful
     return self.checkObject(10, block.name, obj_is_attached=True, obj_is_known=False)
 
