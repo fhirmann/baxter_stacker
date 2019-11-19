@@ -1,0 +1,33 @@
+====================================================================================================================
+Installation:
+=============
+
+1.) Install ROS Kinetic
+2.) Install Openni2:
+  sudo apt-get install libopenni0 libopenni-sensor-primesense0 ros-kinetic-openni2-camera ros-kinetic-openni2-launch
+
+3.) PCL should already be installed with ROS
+4.) connect the Asus Xtion to a normal USB port on the PC (no USB3!!)
+5.) lsusb should show you a device called ID 1d27:0601 ASUS
+6.) copy the intrinsic configuration files (depth_PS1080_PrimeSense.yaml and rgb_PS1080_PrimeSense.yaml) from the perception/config/camera_info folder to /home/"user"/.ros/camera_info
+
+====================================================================================================================
+Stating the Perception modul
+============================
+
+1.) start the camera driver with:
+roslaunch openni2_launch openni2.launch depth_registration:="true"
+
+check if in the output something with loaded the dept...yaml and rgb...yaml calibration file is displayed
+
+2.) start the transform listener with:
+rosrun tf static_transform_publisher 0.2 0.0 0.8 0.0 0.85 0.0 /torso /camera_link 30
+
+3.) load the rosparameters for the filter
+rosparam load src/perception/config/filter_parameters.yaml
+
+4.) run the filter
+rosrun perception filter
+
+5.) (optional) run rviz to visualize the different clouds - add a PointCloud2 and select the desired topic
+rosrun rviz rviz

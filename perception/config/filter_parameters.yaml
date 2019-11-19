@@ -1,0 +1,14 @@
+filter/table_x_low :  0.5
+filter/table_x_high:  1.3
+filter/table_y_low : -0.35
+filter/table_y_high:  0.25
+filter/table_z_low : -0.28
+filter/table_z_high: -0.1
+filter/plane_seg_threshold: 0.04
+filter/plane_seg_max_iterations: 500
+filter/col_seg_min_cluster_size: 100
+filter/col_seg_dist_threshold: 0.01
+filter/col_seg_point_col_threshold: 35
+filter/col_seg_region_col_threshold: 1
+filter/outlier_remove_radius: 0.005
+filter/outlier_remove_min_neighb: 10
