@@ -62,6 +62,11 @@ class kmr19SceneControl:
 
     return False, scene_object()
 
+  def updateBlockInScene(self, block):
+    for index, item in enumerate(self.scene_blocks):
+      if item.id == block.id:
+        item = block
+
   def removeBlockFromPlanningScene(self, block_name=""):
     self.scene.remove_world_object(block_name)
     return self.checkObject(10, block_name, obj_is_attached=False, obj_is_known=False)
@@ -72,6 +77,7 @@ class kmr19SceneControl:
     # wait until scene is changed
     return self.checkObject(10, block.name, obj_is_attached=False, obj_is_known=True)
 
+  '''  
   def attachBlockToArm(self, block, arm='left'):
     if(arm=='left'):
       eef_link = 'left_gripper'
@@ -84,6 +90,7 @@ class kmr19SceneControl:
     self.scene.attach_box(eef_link, block.name, pose=block.mid_pose, size=block.size, touch_links=touch_links)
     #check if object action was successful
     return self.checkObject(10, block.name, obj_is_attached=True, obj_is_known=False)
+  '''
 
   def checkObject(self, timeout, name, obj_is_attached=False, obj_is_known=False):
     #copied from http://docs.ros.org/kinetic/api/moveit_tutorials/html/doc/move_group_python_interface/move_group_python_interface_tutorial.html

@@ -30,10 +30,10 @@ if __name__ == "__main__":
   block_pose = PoseStamped()
   block_pose.header.frame_id = "/world"
   block_pose.pose.position.x = 0.81
-  block_pose.pose.position.y = 0.2
-  block_pose.pose.position.z = -0.16 
+  block_pose.pose.position.y = 0.2 #= 0.08
+  block_pose.pose.position.z = -0.16
 
-  #success = putdown(block_pose)
-  #print "kmr pit down successful? ", success
+  success = putdown(block_pose)
+  print "kmr pit down successful? ", success
 
 
