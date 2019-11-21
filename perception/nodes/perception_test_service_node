@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+
+import rospy
+
+from perception.srv import GetScene, GetSceneResponse
+from perception.msg import Block
+
+def get_defined_block_from_test_scene():
+    block = Block()
+    block.id = 1
+    block.type = block.CUBOID
+    block.color = block.YELLOW
+
+    block.width = 39./1000.
+    block.depth = 39./1000.
+    block.height = 80./1000.
+
+    block.pose.header.frame_id = '/world'
+
+    block.pose.pose.position.x = 0.8
+    block.pose.pose.position.y = 0.08
+    block.pose.pose.position.z = -0.16
+
+
+    return block
+
+def handle_get_scene(req):
+
+    block_list = [get_defined_block_from_test_scene()]
+    success = True
+
+    return GetSceneResponse(success, block_list)
+
+def get_scene_server():
+    rospy.init_node('get_scene_server')
+    s = rospy.Service('get_scene', GetScene, handle_get_scene)
+    print "Ready to get test scene."
+    rospy.spin()
+
+if __name__ == "__main__":
+    get_scene_server()

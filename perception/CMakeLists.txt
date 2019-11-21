@@ -9,14 +9,30 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   sensor_msgs
   std_msgs
+  message_generation
+  geometry_msgs
 )
 
+catkin_python_setup()
+
 ## Declare ROS messages and services
-#add_message_files(FILES Num.msg)
-#add_service_files(FILES AddTwoInts.srv)
+add_message_files(
+  DIRECTORY msg
+  FILES Block.msg)
+
+add_service_files(
+  DIRECTORY srv
+  FILES GetScene.srv)
  
 ## Generate added messages and services
-#generate_messages(DEPENDENCIES std_msgs)
+generate_messages(
+  DEPENDENCIES 
+  std_msgs
+  geometry_msgs)
+
+catkin_package(
+  CATKIN_DEPENDS message_runtime
+)
  
 ## Declare a catkin package
 catkin_package()
@@ -28,5 +44,10 @@ add_executable(filter src/filter.cpp)
 target_link_libraries(filter ${catkin_LIBRARIES})
 #add_dependencies(talker beginner_tutorials_generate_messages_cpp)
 
-add_executable(cloud_publisher src/cloud_publisher.cpp)
-target_link_libraries(cloud_publisher ${catkin_LIBRARIES})
+#add_executable(cloud_publisher src/cloud_publisher.cpp)
+#target_link_libraries(cloud_publisher ${catkin_LIBRARIES})
+
+install(PROGRAMS
+  nodes/perception_test_service_node
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
