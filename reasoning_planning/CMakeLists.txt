@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   diagnostic_msgs
   tf
+  manipulation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -138,10 +139,10 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 #add_executable(${PROJECT_NAME}_node src/reasoning_planning_node.cpp)
-add_executable(pickUpAction src/PickUpAction.cpp  src/ManipulateAction.cpp)
-add_executable(putDownAction src/PutDownAction.cpp)
-add_executable(stackAction src/StackAction.cpp)
-add_executable(unstackAction src/UnstackAction.cpp)
+add_executable(pickUpAction src/PickUpAction.cpp src/ManipulateAction.cpp)
+add_executable(putDownAction src/PutDownAction.cpp src/ManipulateAction.cpp)
+add_executable(stackAction src/StackAction.cpp src/ManipulateAction.cpp)
+add_executable(unstackAction src/UnstackAction.cpp src/ManipulateAction.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

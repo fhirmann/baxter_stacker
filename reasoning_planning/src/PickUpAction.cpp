@@ -5,6 +5,11 @@
 #include <diagnostic_msgs/KeyValue.h>
 #include <string>
 
+#include <manipulation/kmr19_pick_up.h>
+
+
+#include "ros/ros.h"
+
 
 /* constructor */
 PickUpAction::PickUpAction(ros::NodeHandle &nh) {
@@ -36,7 +41,24 @@ bool PickUpAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch:
     ROS_INFO("pick up: block: %s; location: %s", block.c_str(), location.c_str());
     ROS_INFO("x = %f; y = %f", p.position.x, p.position.y);
 
-    return ((double)rand() / RAND_MAX) > 0.9; // success with probability of 80 %
+    ros::NodeHandle n;
+
+    ros::ServiceClient client = n.serviceClient<manipulation::kmr19_pick_up>("kmr19_manipulation_pick_up");
+
+    manipulation::kmr19_pick_up srv;
+    srv.request.block_id = 1;
+
+    if (client.call(srv))
+    {
+        ROS_INFO("Success: %d", (int)srv.response.success);
+    }
+    else
+    {
+        ROS_ERROR("Failed to call service kmr19_pick_up");
+        return false;
+    }
+
+    return srv.response.success;
 }
 
 

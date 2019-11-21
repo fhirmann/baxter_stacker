@@ -24,4 +24,8 @@ public:
 
 protected:
 	bool get_location_pose(std::string name, Pose& p);
+
+	bool get_block_top_position(std::string name, Pose& p);
+
+	static constexpr float s_WORLD_TO_TABLE_DISTANCE_Z = -0.16;
 };

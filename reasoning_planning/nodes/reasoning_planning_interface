@@ -166,6 +166,77 @@ def test_set_goal():
                    'yellow_block', 'green_block')
     update_fact_clear(KnowledgeUpdateServiceRequest.ADD_GOAL, 'yellow_block')
 
+def test_create_init_knowledge_base_manipulation_simple():
+
+    # for test create knowledge programmatically as defined statically for manipulation
+    # one yellow big block in the center at the marked position
+
+    # clear current knowledge
+
+    rospy.wait_for_service('/rosplan_knowledge_base/clear')
+    clear_service = rospy.ServiceProxy('/rosplan_knowledge_base/clear', Empty)
+    result = clear_service()
+
+    # clear also stored pose informations in scene database (mongo db)
+    msg_store = MessageStoreProxy()
+    res = msg_store.query(Pose._type)
+
+    for (pose, meta) in res:
+        print meta
+
+        loc_id = meta['_id']
+        msg_store.delete(str(loc_id))
+
+
+    # get service handle for update_array
+
+    rospy.wait_for_service('/rosplan_knowledge_base/update_array')
+    update_array_service = rospy.ServiceProxy(
+        '/rosplan_knowledge_base/update_array', KnowledgeUpdateServiceArray)
+
+    # add instances of blocks with array update
+
+    instance_names = {'yellow_block'}
+
+    update_items = []
+    update_types = []
+
+    for instance_name in instance_names:
+        update_item = KnowledgeItem()
+        update_item.knowledge_type = KnowledgeItem.INSTANCE
+        update_item.instance_type = 'block'
+        update_item.instance_name = instance_name
+
+        update_items.append(update_item)
+
+        update_types.append(KnowledgeUpdateServiceArrayRequest.ADD_KNOWLEDGE)
+
+    result = update_array_service(update_types, update_items)
+
+    print 'return of adding instances of blocks:'
+    print result
+
+    add_location("loc1", 0.93, 0.3)
+    add_location("loc2", 0.81, 0.2)
+
+    update_fact_hand_empty(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE)
+    update_fact_on_table(
+        KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'yellow_block', 'loc1')
+    update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'yellow_block')
+    update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'loc2')
+
+def test_set_goal_manipulation_simple():
+    update_fact_on_table(KnowledgeUpdateServiceRequest.ADD_GOAL, 'yellow_block', 'loc2')
+
+def test_scene_and_goal_stacked_blocks():
+    test_create_init_knowledge_base()
+
+    test_set_goal()
+
+def test_scene_and_goal_simple_manipulation():
+    test_create_init_knowledge_base_manipulation_simple()
+
+    test_set_goal_manipulation_simple()
 
 def main():
 
@@ -176,10 +247,8 @@ def main():
     rospy.Subscriber(
         '/rosplan_planner_interface/planner_output', String, plan_printer)
 
-    test_create_init_knowledge_base()
-
-    test_set_goal()
-
+   
+    test_scene_and_goal_simple_manipulation()
 
 
 
@@ -190,6 +259,8 @@ def main():
 
         parse_plan()
         goal_reached = dispatch_plan()
+
+        goal_reached = True # hack to only do once
 
     print "end of main reached!"
 

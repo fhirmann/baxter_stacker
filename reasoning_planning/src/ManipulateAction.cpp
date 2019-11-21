@@ -35,3 +35,13 @@ bool ManipulateAction::get_location_pose(std::string name, Pose& p)
 
     return true;
 }
+
+
+bool ManipulateAction::get_block_top_position(std::string name, Pose& p)
+{
+    // query the objects on which the block is standing until it is not on some block but on_table
+    // for the pose x and y it is the location from on_table
+    // for the pose z it is the summed up heights of the blocks
+
+    return false;
+}
