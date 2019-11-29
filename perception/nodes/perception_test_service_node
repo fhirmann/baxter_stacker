@@ -5,28 +5,51 @@ import rospy
 from perception.srv import GetScene, GetSceneResponse
 from perception.msg import Block
 
-def get_defined_block_from_test_scene():
+def get_defined_block1_from_test_scene():
     block = Block()
     block.id = 1
     block.type = block.CUBOID
     block.color = block.YELLOW
 
-    block.width = 39./1000.
-    block.depth = 39./1000.
+    block.width = 40./1000.
+    block.depth = 40./1000.
     block.height = 80./1000.
 
     block.pose.header.frame_id = '/world'
 
-    block.pose.pose.position.x = 0.8
-    block.pose.pose.position.y = 0.08
+    block.pose.pose.position.x = 0.785
+    block.pose.pose.position.y = 0.075
     block.pose.pose.position.z = -0.16
+
+    # no orientation (=0)
+
+
+    return block
+
+def get_defined_block2_from_test_scene():
+    block = Block()
+    block.id = 2
+    block.type = block.CUBOID
+    block.color = block.YELLOW
+
+    block.width = 20./1000.
+    block.depth = 40./1000.
+    block.height = 80./1000.
+
+    block.pose.header.frame_id = '/world'
+
+    block.pose.pose.position.x = 0.785
+    block.pose.pose.position.y = 0.275
+    block.pose.pose.position.z = -0.16
+
+    # no orientation (=0)
 
 
     return block
 
 def handle_get_scene(req):
 
-    block_list = [get_defined_block_from_test_scene()]
+    block_list = [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene()]
     success = True
 
     return GetSceneResponse(success, block_list)
@@ -34,7 +57,7 @@ def handle_get_scene(req):
 def get_scene_server():
     rospy.init_node('get_scene_server')
     s = rospy.Service('get_scene', GetScene, handle_get_scene)
-    print "Ready to get test scene."
+    print "Ready to provide service get_scene for test scene with two blocks."
     rospy.spin()
 
 if __name__ == "__main__":

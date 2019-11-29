@@ -31,6 +31,9 @@ from geometry_msgs.msg import Pose, Point, Quaternion
 
 from tf.transformations import *
 
+from perception.srv import GetScene, GetSceneResponse
+from perception.msg import Block
+
 def plan_printer(plan):
     print "Printing plan:"
     print plan.data
@@ -238,6 +241,49 @@ def test_scene_and_goal_simple_manipulation():
 
     test_set_goal_manipulation_simple()
 
+def clear_blocks_from_scene_db():
+    # clear also stored pose informations in scene database (mongo db)
+    msg_store = MessageStoreProxy()
+    res = msg_store.query(Block._type)
+
+    for (block, meta) in res:
+        print meta
+
+        block_id = meta['_id']
+        msg_store.delete(str(block_id))
+
+def get_scene_and_store_in_db():
+    get_scene_service = rospy.ServiceProxy('/get_scene', GetScene)
+    result = get_scene_service()
+
+    print result
+
+    # clear previous items in scene db
+    clear_blocks_from_scene_db()
+
+    if result.success:
+        msg_store = MessageStoreProxy()
+
+        for block in result.blocks:
+
+            msg_store.insert_named(block.id, block)
+    
+
+    return result.success   
+
+
+def print_blocks_from_db():
+    msg_store = MessageStoreProxy()
+    res = msg_store.query(Block._type)
+
+    print "stored blocks in scene DB are:"
+    for (block, meta) in res:
+        print meta
+        print block
+        
+
+
+
 def main():
 
     # init
@@ -247,8 +293,15 @@ def main():
     rospy.Subscriber(
         '/rosplan_planner_interface/planner_output', String, plan_printer)
 
+
    
-    test_scene_and_goal_simple_manipulation()
+    #test_scene_and_goal_simple_manipulation()
+
+    get_scene_and_store_in_db()
+
+    print_blocks_from_db()
+
+    return
 
 
 

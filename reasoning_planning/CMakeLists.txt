@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   diagnostic_msgs
   tf
   manipulation
+  perception
 )
 
 ## System dependencies are found with CMake's conventions
