@@ -29,7 +29,7 @@ class kmr19SceneControl:
     new_obj.mid_pose.pose.position.x = 0.93
     new_obj.mid_pose.pose.position.y = 0.3
     new_obj.mid_pose.pose.position.z = -0.55 
-    new_obj.size = (0.8, 1.6, 0.7)
+    new_obj.size = (0.9, 1.6, 0.7)
     self.addBlockToScene(new_obj)
 
     new_obj = scene_object()    
@@ -37,10 +37,21 @@ class kmr19SceneControl:
     new_obj.id = self.block_id
     new_obj.color = "yellow"
     new_obj.mid_pose.header.frame_id = "/world"
-    new_obj.mid_pose.pose.position.x = 0.80
-    new_obj.mid_pose.pose.position.y = 0.08
-    new_obj.mid_pose.pose.position.z = -0.16 
+    new_obj.mid_pose.pose.position.x = 0.785
+    new_obj.mid_pose.pose.position.y = 0.075
+    new_obj.mid_pose.pose.position.z = -0.16
     new_obj.size = (0.04, 0.04, 0.08)
+    self.addBlockToScene(new_obj)
+
+    new_obj = scene_object()
+    new_obj.name = "block_2"
+    new_obj.id = self.block_id
+    new_obj.color = "yellow"
+    new_obj.mid_pose.header.frame_id = "/world"
+    new_obj.mid_pose.pose.position.x = 0.785
+    new_obj.mid_pose.pose.position.y = 0.275
+    new_obj.mid_pose.pose.position.z = -0.16
+    new_obj.size = (0.04, 0.02, 0.08)
     self.addBlockToScene(new_obj)
 
     print("[kmr19SceneCtrl addFixedSceneObjects]: added fixed scene objects!")
@@ -53,7 +64,7 @@ class kmr19SceneControl:
     #add to MoveIt scene
     self.scene.add_box( block.name, block.mid_pose, block.size )
     #wait until scene is changed
-    self.checkObject(10, block.name, obj_is_attached=False, obj_is_known=True)
+    self.checkObject(3, block.name, obj_is_attached=False, obj_is_known=True)
 
   def isBlockInScene(self, id):
     for index, item in enumerate(self.scene_blocks):
@@ -69,13 +80,13 @@ class kmr19SceneControl:
 
   def removeBlockFromPlanningScene(self, block_name=""):
     self.scene.remove_world_object(block_name)
-    return self.checkObject(10, block_name, obj_is_attached=False, obj_is_known=False)
+    return self.checkObject(3, block_name, obj_is_attached=False, obj_is_known=False)
 
   def addBlockToPlanningScene(self, block):
     # add to MoveIt scene
     self.scene.add_box(block.name, block.mid_pose, block.size)
     # wait until scene is changed
-    return self.checkObject(10, block.name, obj_is_attached=False, obj_is_known=True)
+    return self.checkObject(3, block.name, obj_is_attached=False, obj_is_known=True)
 
   '''  
   def attachBlockToArm(self, block, arm='left'):
@@ -89,7 +100,7 @@ class kmr19SceneControl:
     #attach in MoveIt scene
     self.scene.attach_box(eef_link, block.name, pose=block.mid_pose, size=block.size, touch_links=touch_links)
     #check if object action was successful
-    return self.checkObject(10, block.name, obj_is_attached=True, obj_is_known=False)
+    return self.checkObject(3, block.name, obj_is_attached=True, obj_is_known=False)
   '''
 
   def checkObject(self, timeout, name, obj_is_attached=False, obj_is_known=False):

@@ -33,6 +33,7 @@ class kmr19ArmCtrl:
 
       #set target position
       target_pose = group.get_current_pose(end_effector_link=link).pose
+
       target_pose.position.x = 0.82
       target_pose.position.y = 0.3
       target_pose.position.z = 0.1
@@ -40,6 +41,7 @@ class kmr19ArmCtrl:
       target_pose.orientation.y = 1
       target_pose.orientation.z = 0
       target_pose.orientation.w = 0
+
     elif (arm == 'right'):
       group = self.group_r
       link = 'right_gripper'
@@ -87,39 +89,65 @@ class kmr19ArmCtrl:
 
     group = self.group_l
     link = 'left_gripper'
+    frame = "left_gripper"
     if(arm == 'right'):
       group = self.group_r
       link = 'right_gripper'
+      frame = "right_gripper"
+
+    #cartesian path waypoints
+    waypoints = []
 
     #init target pose
     target_pose = group.get_current_pose(end_effector_link=link).pose
 
-    # change orientation of target pose to bring gripper in right direction
+    #change orientation of target pose to bring gripper in right direction
     target_pose.orientation.x = 0
     target_pose.orientation.y = 1
     target_pose.orientation.z = 0
     target_pose.orientation.w = 0
 
+    #generate first waypoint
     target_pose.position.x = block_pose.pose.position.x
     target_pose.position.y = block_pose.pose.position.y
-    target_pose.position.z = block_pose.pose.position.z + height_dif
+    target_pose.position.z = block_pose.pose.position.z + height_dif/2
+
+    #add target positions and generate second waypoint
+    waypoints.append(copy.deepcopy(target_pose))
+    target_pose.position.z = block_pose.pose.position.z + height_dif/2
+    waypoints.append(copy.deepcopy(target_pose))
+
 
     #set target pose in MoveIt Commander
-    group.set_pose_target(target_pose, link)
+    #group.set_pose_target(target_pose, link)
 
     #compute path
-    plan = group.plan()
+    (plan, fraction) = group.compute_cartesian_path(waypoints,  # waypoints to follow
+                                                    0.01,       # eef_step
+                                                    0.0)        # jump_threshold
+
+    #plan = group.plan()
 
     return plan
 
   def planBlockPutdown(self, goal_pose, height_dif=0, arm='left'):
+    '''
+       :param block_pose: PoseStamped() of mid-point of block to pick up
+       :param height_dif: height difference to block mid-point when closing gripper
+       :param arm: defines which arm should be used
+       :return: motion plan for pick up procedure, plan maybe not valid --> check somewhere else
+       '''
+
     group = self.group_l
     link = 'left_gripper'
-    if(arm == 'right'):
+    if (arm == 'right'):
       group = self.group_r
       link = 'right_gripper'
 
-    #init target pose
+    # cartesian path waypoints
+    waypoints = []
+
+    # init target pose
     target_pose = group.get_current_pose(end_effector_link=link).pose
 
     # change orientation of target pose to bring gripper in right direction
@@ -128,16 +156,24 @@ class kmr19ArmCtrl:
     target_pose.orientation.z = 0
     target_pose.orientation.w = 0
 
-    # set x/y waypoint
     target_pose.position.x = goal_pose.position.x
     target_pose.position.y = goal_pose.position.y
-    target_pose.position.z = goal_pose.position.z + height_dif
+    target_pose.position.z = goal_pose.position.z + height_dif/2
+
+    # add target position
+    waypoints.append(copy.deepcopy(target_pose))
+    target_pose.position.z = goal_pose.position.z + height_dif/2
+    waypoints.append(copy.deepcopy(target_pose))
 
     # set target pose in MoveIt Commander
-    group.set_pose_target(target_pose, link)
+    # group.set_pose_target(target_pose, link)
 
     # compute path
-    plan = group.plan()
+    (plan, fraction) = group.compute_cartesian_path(waypoints,  # waypoints to follow
+                                                    0.001,  # eef_step
+                                                    0.0)  # jump_threshold
+
+    # plan = group.plan()
 
     return plan
 
@@ -162,12 +198,11 @@ class kmr19ArmCtrl:
 
     return success
 
-  def initGripper(self, arm='left', gripper_open=True, block = True):
+  def initGripper(self, arm='left', gripper_open=True, block=True):
     #init left gripper
     if (arm == 'left'):
-      self.left_gripper.reset(block=block)
+      self.left_gripper.reboot()
       self.left_gripper.calibrate(block=block)
-      self.left_gripper.set_holding_force(75)
       self.left_gripper.close(block=block)
       self.left_gripper_close_pos = self.left_gripper.position()
 
@@ -178,9 +213,8 @@ class kmr19ArmCtrl:
 
     #init right gripper
     if (arm == 'right'):
-      self.right_gripper.reset(block=block)
+      self.right_gripper.reboot()
       self.right_gripper.calibrate(block=block)
-      self.right_gripper.set_holding_force(75)
       self.right_gripper.close(block=block)
       self.right_gripper_close_pos = self.right_gripper.position()
 
@@ -196,22 +230,29 @@ class kmr19ArmCtrl:
     success = False    
 
     if(arm == 'left'):
+      #for i in range(0, 100):
+      #  self.left_gripper.command_position(position=float(100-i), block=True)
+      self.left_gripper.set_holding_force(50.0)
+      self.left_gripper.set_velocity(1.0)
+      self.left_gripper.set_moving_force(1.0)
       self.left_gripper.close(block=True)
-      rospy.sleep(0.5)
-
       #print("Close Position: ", self.left_gripper_close_pos)
-      if(self.left_gripper.position() > self.left_gripper_close_pos*2):
+      if(self.left_gripper.position() > self.left_gripper_close_pos*1.2):
         success = True
 
     elif(arm=='right'):
+      #for i in range(0, 50):
+      #  self.left_gripper.command_position(position=float(100-i), block=True)
+      self.right_gripper.set_holding_force(50.0)
+      self.right_gripper.set_velocity(1.0)
+      self.right_gripper.set_moving_force(1.0)
       self.right_gripper.close(block=True)
-      rospy.sleep(0.5)
-
-      if(self.right_gripper.position() > self.right_gripper_close_pos*2):
+      if(self.right_gripper.position() > self.right_gripper_close_pos*1.2):
         success = True
     else:
       print("[kmr19ArmCtrl pickupBlock]: specify which arm should pickup block")
 
+    rospy.sleep(1)
     return success
 
   def attachBlock(self, block, arm='left'):
@@ -245,6 +286,21 @@ class kmr19ArmCtrl:
 
   def releaseBlock(self, arm='left'):
     if(arm == 'left'):
+      #current_pos = self.left_gripper.position() + 1
+      #for i in range(int(current_pos), 101):
+      #  self.left_gripper.command_position(position=float(i), block=True)
+      self.left_gripper.set_holding_force(50.0)
+      self.left_gripper.set_velocity(1.0)
+      self.left_gripper.set_moving_force(1.0)
       self.left_gripper.open(block=True)
+
     if(arm == 'right'):
+      #current_pos = self.right_gripper.position() + 1
+      #for i in range(int(current_pos), 101):
+      #  self.right_gripper.command_position(position=float(i), block=True)
+      self.right_gripper.set_holding_force(50.0)
+      self.right_gripper.set_velocity(1.0)
+      self.right_gripper.set_moving_force(1.0)
       self.right_gripper.open(block=True)
+
+    rospy.sleep(1)
