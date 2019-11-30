@@ -1,8 +1,12 @@
 # specific gitignore for reasoning & planning
 
-reasoning_planning/.sync.ffs_db
+.sync.ffs_db
 reasoning_planning/SyncSettings.ffs_gui
 
+# do not add temporary files created by ROSPlan
+
+reasoning_planning/common/plan.pddl
+reasoning_planning/common/problem.pddl
 
 
 # python gitignore
