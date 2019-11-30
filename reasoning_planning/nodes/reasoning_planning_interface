@@ -16,6 +16,8 @@ import rospy
 from reasoning_planning_helper.knowledge_base_helper import *
 from reasoning_planning_helper.rosplan_service_call_helper import *
 
+from reasoning_planning_helper.test_functions import *
+
 
 from std_msgs.msg import String
 from std_srvs.srv import Empty
@@ -35,7 +37,7 @@ from perception.srv import GetScene, GetSceneResponse
 from perception.msg import Block
 
 def plan_printer(plan):
-    print "Printing plan:"
+    rospy.loginfo("Printing created plan:")
     print plan.data
 
 def add_location(name, x, y, yaw = 0):
@@ -63,184 +65,6 @@ def get_location_pose(name):
     return p
     
 
-def test_create_init_knowledge_base():
-
-    # for test create knowledge programmatically as defined statically in problem_baxter.pddl
-
-    # clear current knowledge
-
-    rospy.wait_for_service('/rosplan_knowledge_base/clear')
-    clear_service = rospy.ServiceProxy('/rosplan_knowledge_base/clear', Empty)
-    result = clear_service()
-
-    # clear also stored pose informations in scene database (mongo db)
-    msg_store = MessageStoreProxy()
-    res = msg_store.query(Pose._type)
-
-    for (pose, meta) in res:
-        print meta
-
-        loc_id = meta['_id']
-        msg_store.delete(str(loc_id))
-
-
-    # get service handle for update_array
-
-    rospy.wait_for_service('/rosplan_knowledge_base/update_array')
-    update_array_service = rospy.ServiceProxy(
-        '/rosplan_knowledge_base/update_array', KnowledgeUpdateServiceArray)
-
-    # add instances of blocks with array update
-
-    instance_names = {'green_block', 'yellow_block', 'blue_block'}
-
-    update_items = []
-    update_types = []
-
-    for instance_name in instance_names:
-        update_item = KnowledgeItem()
-        update_item.knowledge_type = KnowledgeItem.INSTANCE
-        update_item.instance_type = 'block'
-        update_item.instance_name = instance_name
-
-        update_items.append(update_item)
-
-        update_types.append(KnowledgeUpdateServiceArrayRequest.ADD_KNOWLEDGE)
-
-    result = update_array_service(update_types, update_items)
-
-    print 'return of adding instances of blocks:'
-    print result
-
-    add_location("loc1", 1, 11)
-    add_location("loc2", 2, 22)
-    add_location("loc3", 3, 33)
-
-    # create init state (this time with single service call)
-
-    update_item = KnowledgeItem()
-    update_item.knowledge_type = KnowledgeItem.FACT
-    update_item.attribute_name = 'hand_empty'
-
-    result = update_service(
-        KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, update_item)
-
-    print 'result of add for \'hand_empty\''
-    print result
-
-    update_item = KnowledgeItem()
-    update_item.knowledge_type = KnowledgeItem.FACT
-    update_item.attribute_name = 'on_table'
-
-    val1 = KeyValue(key='x', value='yellow_block')
-
-    val2 = KeyValue()
-    val2.key = 'loc'
-    val2.value = 'loc1'
-
-    update_item.values = [val1, val2]
-
-    result = update_service(
-        KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, update_item)
-
-    print 'result of add for \'on_table yellow_block loc1\''
-    print result
-
-    # do the rest via nice helper functions
-
-    update_fact_on(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE,
-                   'blue_block', 'yellow_block')
-    update_fact_clear(
-        KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'blue_block')
-    update_fact_on_table(
-        KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'green_block', 'loc2')
-    update_fact_clear(
-        KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'green_block')
-    update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'loc3')
-
-
-def test_set_goal():
-    # set goal programmatically as defined statically in problem_baxter.pddl
-
-    update_fact_hand_empty(KnowledgeUpdateServiceRequest.ADD_GOAL)
-    update_fact_on_table(
-        KnowledgeUpdateServiceRequest.ADD_GOAL, 'green_block', 'loc1')
-    update_fact_on(KnowledgeUpdateServiceRequest.ADD_GOAL,
-                   'yellow_block', 'green_block')
-    update_fact_clear(KnowledgeUpdateServiceRequest.ADD_GOAL, 'yellow_block')
-
-def test_create_init_knowledge_base_manipulation_simple():
-
-    # for test create knowledge programmatically as defined statically for manipulation
-    # one yellow big block in the center at the marked position
-
-    # clear current knowledge
-
-    rospy.wait_for_service('/rosplan_knowledge_base/clear')
-    clear_service = rospy.ServiceProxy('/rosplan_knowledge_base/clear', Empty)
-    result = clear_service()
-
-    # clear also stored pose informations in scene database (mongo db)
-    msg_store = MessageStoreProxy()
-    res = msg_store.query(Pose._type)
-
-    for (pose, meta) in res:
-        print meta
-
-        loc_id = meta['_id']
-        msg_store.delete(str(loc_id))
-
-
-    # get service handle for update_array
-
-    rospy.wait_for_service('/rosplan_knowledge_base/update_array')
-    update_array_service = rospy.ServiceProxy(
-        '/rosplan_knowledge_base/update_array', KnowledgeUpdateServiceArray)
-
-    # add instances of blocks with array update
-
-    instance_names = {'yellow_block'}
-
-    update_items = []
-    update_types = []
-
-    for instance_name in instance_names:
-        update_item = KnowledgeItem()
-        update_item.knowledge_type = KnowledgeItem.INSTANCE
-        update_item.instance_type = 'block'
-        update_item.instance_name = instance_name
-
-        update_items.append(update_item)
-
-        update_types.append(KnowledgeUpdateServiceArrayRequest.ADD_KNOWLEDGE)
-
-    result = update_array_service(update_types, update_items)
-
-    print 'return of adding instances of blocks:'
-    print result
-
-    add_location("loc1", 0.93, 0.3)
-    add_location("loc2", 0.81, 0.2)
-
-    update_fact_hand_empty(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE)
-    update_fact_on_table(
-        KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'yellow_block', 'loc1')
-    update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'yellow_block')
-    update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'loc2')
-
-def test_set_goal_manipulation_simple():
-    update_fact_on_table(KnowledgeUpdateServiceRequest.ADD_GOAL, 'yellow_block', 'loc2')
-
-def test_scene_and_goal_stacked_blocks():
-    test_create_init_knowledge_base()
-
-    test_set_goal()
-
-def test_scene_and_goal_simple_manipulation():
-    test_create_init_knowledge_base_manipulation_simple()
-
-    test_set_goal_manipulation_simple()
-
 def clear_blocks_from_scene_db():
     # clear also stored pose informations in scene database (mongo db)
     msg_store = MessageStoreProxy()
@@ -257,31 +81,127 @@ def get_scene_and_store_in_db():
     result = get_scene_service()
 
     print result
-
-    # clear previous items in scene db
-    clear_blocks_from_scene_db()
-
     if result.success:
+
+        # clear previous items in scene db and knowledge base
+        clear_blocks_from_scene_db()
+
+        rospy.wait_for_service('/rosplan_knowledge_base/clear')
+        clear_service = rospy.ServiceProxy('/rosplan_knowledge_base/clear', Empty)
+        result_clear = clear_service()
+
+        print "result_clear = "
+        print result_clear
+
         msg_store = MessageStoreProxy()
 
         for block in result.blocks:
 
-            msg_store.insert_named(block.id, block)
+            msg_store.insert_named('block{}'.format(block.id), block)
     
 
     return result.success   
+
+def is_epsilon_close(val1, val2, epsilon):
+    return abs(val1 - val2) < epsilon
+
+def is_close_location(position1, position2, epsilon):
+    return is_epsilon_close(position1.x, position2.x, epsilon) and is_epsilon_close(position1.y, position2.y, epsilon)
+
+def create_knowledge_from_scene_db():
+
+    msg_store = MessageStoreProxy()
+    res = msg_store.query(Block._type)
+
+    # sort them by z direction from lowest to most upper to have always lowest created before the upper ones
+    sorted_results = res.sort(key=lambda x: x[0].pose.pose.position.z)
+
+    for (block, meta) in res:
+
+        block_instance_name = "block{}".format(block.id)
+
+        if not add_instance("block", block_instance_name):
+            return False
+        
+        # check if on table
+
+        pos = block.pose.pose.position
+
+        lower_face_pose_z = pos.z - block.height / 2.
+
+        table_height = -0.2
+
+        epsilon = 10./1000
+
+        if is_epsilon_close(lower_face_pose_z, table_height, epsilon):
+            # add new location position
+            location_instance_name = "loc{}".format(block.id)
+            add_instance("location", location_instance_name)#
+
+            add_location(location_instance_name, pos.x, pos.y)
+
+            update_fact_on_table(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, block_instance_name, location_instance_name)
+
+            # check if there's a block on top of it
+            upper_face_pose_z = pos.z + block.height / 2.
+            is_block_on_top = False
+            for (other_block, other_meta) in res:
+
+                if meta['_id'] == other_meta['_id']:
+                    continue
+                
+
+                other_block_position = other_block.pose.pose.position
+
+                if is_close_location(pos, other_block_position, epsilon) and is_epsilon_close(upper_face_pose_z, other_block_position.z - other_block.height/2, epsilon):
+                    is_block_on_top = True
+                    break
+
+            if not is_block_on_top:
+                update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, block_instance_name)
+
+        else: # it's not directly on the table
+
+            # check on which block it is and if there's a block on top of it
+            upper_face_pose_z = pos.z + block.height / 2.
+            lower_face_pose_z = pos.z - block.height / 2.
+            is_block_on_top = False
+
+            for (other_block, other_meta) in res:
+
+                if meta['_id'] == other_meta['_id']:
+                    continue
+                
+
+                other_block_position = other_block.pose.pose.position
+
+                if is_close_location(pos, other_block_position, epsilon):
+                    
+                    if is_epsilon_close(upper_face_pose_z, other_block_position.z - other_block.height/2, epsilon):
+                        is_block_on_top = True
+                    elif is_epsilon_close(lower_face_pose_z, other_block_position.z + other_block.height/2, epsilon):
+                        update_fact_on(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, block_instance_name, "block{}".format(other_block.id))
+            
+
+            if not is_block_on_top:
+                update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, block_instance_name)
 
 
 def print_blocks_from_db():
     msg_store = MessageStoreProxy()
     res = msg_store.query(Block._type)
 
-    print "stored blocks in scene DB are:"
+    rospy.loginfo("stored blocks in scene DB are:")
     for (block, meta) in res:
         print meta
         print block
         
 
+def add_init_knowledge():
+    update_fact_hand_empty(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE)
+    # add one extra location for temporary moving to that position
+    add_location('loc_temp', 0.1, 0.1) # TODO: set some good position for this temporary location
+    update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'loc_temp')
 
 
 def main():
@@ -294,14 +214,15 @@ def main():
         '/rosplan_planner_interface/planner_output', String, plan_printer)
 
 
-   
-    #test_scene_and_goal_simple_manipulation()
-
     get_scene_and_store_in_db()
 
     print_blocks_from_db()
 
-    return
+    create_knowledge_from_scene_db()
+
+    add_init_knowledge()    
+
+    test_set_goal_for_stacked_test_scene()
 
 
 
@@ -313,9 +234,9 @@ def main():
         parse_plan()
         goal_reached = dispatch_plan()
 
-        goal_reached = True # hack to only do once
+        goal_reached = True # hack to only try once
 
-    print "end of main reached!"
+    rospy.loginfo("end of main reached!")
 
     #rospy.spin()
 
