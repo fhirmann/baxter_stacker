@@ -1,0 +1,283 @@
+#!/usr/bin/env python
+
+# START - for debugging in visual studio code
+import ptvsd
+
+# 5678 is the default attach port in the VS Code debug configurations
+print("Waiting for debugger attach")
+ptvsd.enable_attach(address=('localhost', 5678), redirect_output=True)
+ptvsd.wait_for_attach()
+breakpoint()
+
+# END - for debugging in visual studio code
+
+import rospy
+
+from reasoning_planning_helper.reasoning_planning_interface import *
+
+import reasoning_planning_helper.block_semantics as block_semantics
+
+from reasoning_planning.srv import StackGoalService, StackGoalServiceResponse, StackGoalServiceRequest
+
+from perception.msg import Block
+
+from rospy.service import ServiceException
+
+def filter_color(blocks, color):
+
+    filtered_blocks = list(filter(lambda block: block.color == color, blocks))
+
+    return filtered_blocks
+
+
+
+def filter_spatial_relative(blocks, filter_semantic, other_block):
+    assert other_block is not None, "filter_spatial_relative must be called with not-None other_block"
+
+    if filter_semantic == StackGoalServiceRequest.LEFT_RELATIVE:
+        filtered_blocks = list(filter(lambda block: block.left() > other_block.left(), blocks))
+
+    elif filter_semantic == StackGoalServiceRequest.RIGHT_RELATIVE:
+        filtered_blocks = list(filter(lambda block: block.right() > other_block.right(), blocks))
+
+    elif filter_semantic == StackGoalServiceRequest.FAR_RELATIVE:
+        filtered_blocks = list(filter(lambda block: block.far() > other_block.far(), blocks))
+
+    elif filter_semantic == StackGoalServiceRequest.CLOSE_RELATIVE:
+        filtered_blocks = list(filter(lambda block: block.close() > other_block.close(), blocks))
+
+    elif filter_semantic == StackGoalServiceRequest.HIGHER_RELATIVE:
+        filtered_blocks = list(filter(lambda block: block.high() > other_block.high(), blocks))
+
+    elif filter_semantic == StackGoalServiceRequest.LOWER_RELATIVE:
+        filtered_blocks = list(filter(lambda block: block.low() > other_block.low(), blocks))
+
+    else:
+        raise NotImplementedError("filter_spatial_relative can only sort relative semantics")
+
+    return filtered_blocks   
+
+def get_min_special(list_var, sort_func):
+    list_var.sort(key = sort_func)
+    return list_var[0]
+
+def get_max_special(list_var, sort_func):
+    list_var.sort(key = sort_func, reverse = True)
+    return list_var[0]
+
+def filter_spatial_absolute(blocks, filter_semantic):
+
+
+    if filter_semantic == StackGoalServiceRequest.LEFT_ABSOLUTE:
+        filtered_blocks = get_max_special(blocks, block_semantics.left_value)
+
+    elif filter_semantic == StackGoalServiceRequest.RIGHT_ABSOLUTE:
+        filtered_blocks = get_max_special(blocks, block_semantics.right_value)
+
+    elif filter_semantic == StackGoalServiceRequest.FAR_ABSOLUTE:
+        filtered_blocks = get_max_special(blocks, block_semantics.far_value)
+
+    elif filter_semantic == StackGoalServiceRequest.CLOSE_ABSOLUTE:
+        filtered_blocks = get_max_special(blocks, block_semantics.close_value)
+
+    elif filter_semantic == StackGoalServiceRequest.HIGHER_ABSOLUTE:
+        filtered_blocks = get_max_special(blocks, block_semantics.high_value)
+
+    elif filter_semantic == StackGoalServiceRequest.LOWER_ABSOLUTE:
+        filtered_blocks = get_max_special(blocks, block_semantics.low_value)
+
+    else:
+        raise NotImplementedError("filter_spatial_absolute can only sort absolute spatial semantics")
+
+    return [filtered_blocks] # create list again to have same type for later calculations
+
+
+def filter_blocks(blocks, filter_semantic, compare_block = None):
+
+    filtered_blocks = blocks
+
+    if filter_semantic == StackGoalServiceRequest.RED \
+            or filter_semantic == StackGoalServiceRequest.BLUE \
+            or filter_semantic == StackGoalServiceRequest.YELLOW \
+            or filter_semantic == StackGoalServiceRequest.GREEN:
+
+        filtered_blocks = filter_color(blocks, filter_semantic)
+
+    elif filter_semantic == StackGoalServiceRequest.LEFT_RELATIVE \
+            or filter_semantic == StackGoalServiceRequest.RIGHT_RELATIVE \
+            or filter_semantic == StackGoalServiceRequest.FAR_RELATIVE \
+            or filter_semantic == StackGoalServiceRequest.CLOSE_RELATIVE \
+            or filter_semantic == StackGoalServiceRequest.HIGHER_RELATIVE \
+            or filter_semantic == StackGoalServiceRequest.LOWER_RELATIVE:
+
+        filtered_blocks = filter_spatial_relative(blocks, filter_semantic, compare_block)
+
+    elif filter_semantic == StackGoalServiceRequest.LEFT_ABSOLUTE \
+            or filter_semantic == StackGoalServiceRequest.RIGHT_ABSOLUTE \
+            or filter_semantic == StackGoalServiceRequest.FAR_ABSOLUTE \
+            or filter_semantic == StackGoalServiceRequest.CLOSE_ABSOLUTE \
+            or filter_semantic == StackGoalServiceRequest.HIGHER_ABSOLUTE \
+            or filter_semantic == StackGoalServiceRequest.LOWER_ABSOLUTE:
+
+        filtered_blocks = filter_spatial_absolute(blocks, filter_semantic)
+    else:
+        raise NotImplementedError("This semantic type is not implemented!")
+
+    return filtered_blocks
+
+def is_relative_semantic(filter_semantic):
+    return filter_semantic == StackGoalServiceRequest.LEFT_RELATIVE \
+            or filter_semantic == StackGoalServiceRequest.RIGHT_RELATIVE \
+            or filter_semantic == StackGoalServiceRequest.FAR_RELATIVE \
+            or filter_semantic == StackGoalServiceRequest.CLOSE_RELATIVE \
+            or filter_semantic == StackGoalServiceRequest.HIGHER_RELATIVE \
+            or filter_semantic == StackGoalServiceRequest.LOWER_RELATIVE
+
+def get_filtered_blocks_without_relative_semantics(semantics):
+    # sort the semantics by number which means color is always first before others
+    semantics = list(semantics)
+    semantics.sort()
+
+    # filter away the relative semantics
+    semantics = filter(lambda filter_semantic: not is_relative_semantic(filter_semantic), semantics)
+
+    blocks_filtered = list(get_all_blocks_from_db())
+
+    for semantic in semantics:
+        blocks_filtered = filter_blocks(blocks_filtered, semantic)
+
+    return blocks_filtered
+
+def filter_relative_semantics(blocks, semantics, other_block):
+
+    # filter to only the relative semantics
+    semantics = filter(lambda filter_semantic: is_relative_semantic(filter_semantic), semantics)
+
+    blocks_filtered = blocks
+
+    for semantic in semantics:
+        blocks_filtered = filter_blocks(blocks_filtered, semantic, other_block)
+
+    return blocks_filtered
+
+def achieve_goal(response):
+    try:
+        generate_problem()
+    except Exception as e:
+        response.success = False
+        response.general_error = StackGoalServiceResponse.OTHER_ERROR
+        rospy.logerr("Error at generating problem.")
+        return response
+
+
+    try:
+        generate_plan()
+    except ServiceException as e:
+        response.success = False
+        response.general_error = StackGoalServiceResponse.PROBLEM_UNSOLVABLE
+        rospy.logerr("A plan could not be generated.")
+        return response
+    except Exception as e:
+        response.success = False
+        response.general_error = StackGoalServiceResponse.OTHER_ERROR
+        rospy.logerr("Error at generating plan.")
+        print e
+        return response
+
+
+    try:
+        parse_plan()
+    except Exception as e:
+        response.success = False
+        response.general_error = StackGoalServiceResponse.OTHER_ERROR
+        rospy.logerr("Error at parsing plan.")
+        return response
+
+    try:
+        goal_reached = dispatch_plan()
+        print goal_reached
+        response.success = goal_reached
+    except Exception as e:
+        response.success = False
+        response.general_error = StackGoalServiceResponse.OTHER_ERROR
+        rospy.logerr("Error at dispatching plan.")
+        return response
+
+    return response
+
+def handle_stack_goal_service(req):
+
+    rospy.loginfo("handle_stack_goal_service: got request:")
+    print req
+
+
+    # handle request
+
+    get_scene_and_store_in_db()
+
+    # filter out blocks
+    
+    top_blocks_filtered = get_filtered_blocks_without_relative_semantics(req.top_block_semantics)
+
+    below_blocks_filtered = get_filtered_blocks_without_relative_semantics(req.below_block_semantics)
+
+    # relative semantics can only be applied when there is just one other block left
+    if len(top_blocks_filtered) == 1:
+        below_blocks_filtered = filter_relative_semantics(below_blocks_filtered, req.below_block_semantics, top_blocks_filtered[0])
+    
+    if len(below_blocks_filtered) == 1:
+        top_blocks_filtered = filter_relative_semantics(top_blocks_filtered, req.top_block_semantics, below_blocks_filtered[0]) 
+
+
+
+    # do response
+    response = StackGoalServiceResponse()
+
+    response.success = True
+    response.top_block_error = StackGoalServiceResponse.NO_ERROR
+    response.below_block_error = StackGoalServiceResponse.NO_ERROR
+    response.general_error = StackGoalServiceResponse.NO_ERROR
+
+    # check for errors
+
+    if (len(top_blocks_filtered) == 0):
+        response.success = False
+        response.top_block_error = StackGoalServiceResponse.NO_OBJECT_FOUND
+
+    elif (len(top_blocks_filtered) > 1):
+        response.success = False
+        response.top_block_error = StackGoalServiceResponse.MULTIPLE_SAME_OBJECTs
+
+
+    if (len(below_blocks_filtered) == 0):
+        response.success = False
+        response.below_block_error = StackGoalServiceResponse.NO_OBJECT_FOUND
+
+    elif (len(below_blocks_filtered) > 1):
+        response.success = False
+        response.below_block_error = StackGoalServiceResponse.MULTIPLE_SAME_OBJECTs
+
+
+    if (response.success == True):
+        create_knowledge_from_scene_db()
+
+        add_init_knowledge()  
+
+        
+        response = achieve_goal(response)        
+
+
+    rospy.loginfo("handle_stack_goal_service: response:")
+    print response
+
+    return response
+
+def start_stack_goal_server():
+    rospy.init_node('reasoning_planning_service_node')
+    s = rospy.Service('stack_goal_service', StackGoalService, handle_stack_goal_service)
+    rospy.loginfo("Ready to provide service StackGoalService on {}!".format(s.resolved_name))
+
+if __name__ == "__main__":
+    start_stack_goal_server()
+
+    rospy.spin()

@@ -13,10 +13,10 @@
 
 import rospy
 
-from reasoning_planning_helper.knowledge_base_helper import *
-from reasoning_planning_helper.rosplan_service_call_helper import *
+from knowledge_base_helper import *
+from rosplan_service_call_helper import *
 
-from reasoning_planning_helper.test_functions import *
+from test_functions import *
 
 
 from std_msgs.msg import String
@@ -207,6 +207,15 @@ def print_blocks_from_db():
     for (block, meta) in res:
         print meta
         print block
+
+def get_all_blocks_from_db():
+    msg_store = MessageStoreProxy()
+    res = msg_store.query(Block._type)
+
+    (blocks, metas) = zip(*res)
+
+
+    return blocks
         
 
 def add_init_knowledge():
@@ -215,43 +224,3 @@ def add_init_knowledge():
     add_location('loc_temp', 0.1, 0.1) # TODO: set some good position for this temporary location
     update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'loc_temp')
 
-
-def main():
-
-    # init
-
-    rospy.init_node('reasoning_planning_interface', anonymous=True)
-
-    rospy.Subscriber(
-        '/rosplan_planner_interface/planner_output', String, plan_printer)
-
-
-    get_scene_and_store_in_db()
-
-    print_blocks_from_db()
-
-    create_knowledge_from_scene_db()
-
-    add_init_knowledge()    
-
-    test_set_goal_for_stacked_test_scene()
-
-
-
-    goal_reached = False
-    while not goal_reached:
-        generate_problem()
-        generate_plan()
-
-        parse_plan()
-        goal_reached = dispatch_plan()
-
-        goal_reached = True # hack to only try once
-
-    rospy.loginfo("end of main reached!")
-
-    #rospy.spin()
-
-
-if __name__ == '__main__':
-    main()

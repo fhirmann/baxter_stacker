@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   manipulation
   perception
+  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -66,6 +67,10 @@ catkin_python_setup()
 #   Service2.srv
 # )
 
+add_service_files(
+  DIRECTORY srv
+  FILES StackGoalService.srv)
+
 ## Generate actions in the 'action' folder
 # add_action_files(
 #   FILES
@@ -74,10 +79,14 @@ catkin_python_setup()
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
+catkin_package(
+  CATKIN_DEPENDS message_runtime
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -179,6 +188,8 @@ target_link_libraries(unstackAction ${catkin_LIBRARIES})
 ## in contrast to setup.py, you can choose the destination
 install(PROGRAMS
   nodes/reasoning_planning_interface
+  nodes/reasoning_planning_service_node
+  nodes/reasoning_planning_service_client_test_node
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

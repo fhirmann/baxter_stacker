@@ -1,0 +1,54 @@
+# service for the goal of stacking some block on another block
+# the semantics are then defined by the constants below put in the array
+
+# an example command would be "stack the left, blue block on the yellow block"
+# this would have the request: top_block_semantics = [4,1]; below_block_semantics = [2]
+
+int8 RED = 0
+int8 BLUE = 1
+int8 YELLOW = 2
+int8 GREEN = 3
+
+# spatial semantics seen from the user's perspective relative to the other block
+int8 LEFT_RELATIVE = 4 
+int8 RIGHT_RELATIVE = 5
+int8 FAR_RELATIVE = 6
+int8 CLOSE_RELATIVE = 7
+
+# only valid and usable if there are some blocks on top or below, respectively
+# e.g. if there are the only two yellow blocks stacked on each other, 
+# "stack the lower, yellow block on the ..." would with top_block_semantics = [9, 2] correctly find this block below
+int8 HIGHER_RELATIVE = 8
+int8 LOWER_RELATIVE = 9 
+
+# spatial semantics seen from the user's perspective absolute to the all other (same color (if used)) blocks
+int8 LEFT_ABSOLUTE = 10 
+int8 RIGHT_ABSOLUTE = 11
+int8 FAR_ABSOLUTE = 12
+int8 CLOSE_ABSOLUTE = 13
+
+# only valid and usable if there are some blocks on top or below, respectively
+# e.g. if there are the only two yellow blocks stacked on each other, 
+# "stack the lower, yellow block on the ..." would with top_block_semantics = [9, 2] correctly find this block below
+int8 HIGHER_ABSOLUTE = 14
+int8 LOWER_ABSOLUTE = 15
+
+int8[] top_block_semantics # semantics of the block which should be on top
+int8[] below_block_semantics # semantics of the block which should be below
+---
+
+
+bool success # true if the goal has been reached
+
+# only if success = false, errors must and shall be checked 
+
+# constants used for below error fields
+int8 NO_ERROR = 0
+int8 MULTIPLE_SAME_OBJECTs = 1
+int8 NO_OBJECT_FOUND = 2
+int8 PROBLEM_UNSOLVABLE = 3
+int8 OTHER_ERROR = 4
+
+int8 top_block_error # errors regarding the top block (semantics)
+int8 below_block_error # errors regarding the below block (semantics)
+int8 general_error # general errors
