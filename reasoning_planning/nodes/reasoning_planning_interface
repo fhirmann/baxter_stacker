@@ -66,7 +66,7 @@ def get_location_pose(name):
     
 
 def clear_blocks_from_scene_db():
-    # clear also stored pose informations in scene database (mongo db)
+    # clear stored pose informations in scene database (mongo db)
     msg_store = MessageStoreProxy()
     res = msg_store.query(Block._type)
 
@@ -75,6 +75,17 @@ def clear_blocks_from_scene_db():
 
         block_id = meta['_id']
         msg_store.delete(str(block_id))
+
+def clear_locations_from_scene_db():
+    # clear stored location informations in scene database (mongo db)
+    msg_store = MessageStoreProxy()
+    res = msg_store.query(Pose._type)
+
+    for (pose, meta) in res:
+        print meta
+
+        location_id = meta['_id']
+        msg_store.delete(str(location_id))
 
 def get_scene_and_store_in_db():
     get_scene_service = rospy.ServiceProxy('/get_scene', GetScene)
@@ -85,6 +96,7 @@ def get_scene_and_store_in_db():
 
         # clear previous items in scene db and knowledge base
         clear_blocks_from_scene_db()
+        clear_locations_from_scene_db()
 
         rospy.wait_for_service('/rosplan_knowledge_base/clear')
         clear_service = rospy.ServiceProxy('/rosplan_knowledge_base/clear', Empty)

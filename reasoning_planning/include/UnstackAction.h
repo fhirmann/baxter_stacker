@@ -1,11 +1,6 @@
-#include <ros/ros.h>
-#include <vector>
-
-#include "ManipulateAction.h"
-
-
 #pragma once
 
+#include "ManipulateAction.h"
 
 class UnstackAction: public ManipulateAction
 {

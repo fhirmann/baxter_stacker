@@ -1,13 +1,7 @@
 #include "PutDownAction.h"
 
-#include <random>
-
 #include <manipulation/kmr19_put_down.h>
 
-#include "ros/ros.h"
-
-
-#include "geometry_msgs/PoseStamped.h"
 
 
 /* constructor */
@@ -26,19 +20,21 @@ bool PutDownAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch
     size_t num_values = msg->parameters.size();
     assert(num_values == 2 && "number of values for pickup must be two");
 
-    std::string block = msg->parameters[0].value;
-    std::string location = msg->parameters[1].value;
+    std::string block_name = msg->parameters[0].value;
+    std::string location_name = msg->parameters[1].value;
 
-    Pose p;
+    Pose location_pose;
+    perception::Block block;
 
-    if (!get_location_pose(location, p))
+    if (!get_location_pose(location_name, location_pose) || !get_block(block_name, block))
     {
         return false;
     }
 
 
-    ROS_INFO("put down: block: %s; location: %s", block.c_str(), location.c_str());
-    ROS_INFO("x = %f; y = %f", p.position.x, p.position.y);
+    ROS_INFO("put down: block: %s; location: %s", block_name.c_str(), location_name.c_str());
+    ROS_INFO("location: x = %f; y = %f", location_pose.position.x, location_pose.position.y);
+    ROS_INFO("block: id = %lu; height = %f", block.id, block.height);
 
     ros::NodeHandle n;
 
@@ -50,12 +46,16 @@ bool PutDownAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch
 
 
     end_position_msg.header.frame_id = "/world";
-    end_position_msg.pose.position.x = p.position.x;
-    end_position_msg.pose.position.y = p.position.y;
-    end_position_msg.pose.position.z = -0.16; // table height
+    end_position_msg.pose.position.x = location_pose.position.x;
+    end_position_msg.pose.position.y = location_pose.position.y;
+    end_position_msg.pose.position.z = s_WORLD_TO_TABLE_DISTANCE_Z + block.height/2.;
 
 
     srv.request.end_position = end_position_msg;
+
+    ROS_INFO_STREAM("request: " << srv.request);
+
+    return true; // temporary for testing
 
     if (client.call(srv))
     {

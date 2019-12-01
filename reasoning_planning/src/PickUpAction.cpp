@@ -1,14 +1,7 @@
 #include "PickUpAction.h"
 
-#include <random>
-
-#include <diagnostic_msgs/KeyValue.h>
-#include <string>
-
 #include <manipulation/kmr19_pick_up.h>
 
-
-#include "ros/ros.h"
 
 
 /* constructor */
@@ -27,26 +20,32 @@ bool PickUpAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch:
     size_t num_values = msg->parameters.size();
     assert(num_values == 2 && "number of values for pickup must be two");
 
-    std::string block = msg->parameters[0].value;
-    std::string location = msg->parameters[1].value;
+    std::string block_name = msg->parameters[0].value;
+    std::string location_name = msg->parameters[1].value;
 
-    Pose p;
+    Pose location_pose;
+    perception::Block block;
 
-    if (!get_location_pose(location, p))
+    if (!get_location_pose(location_name, location_pose) || !get_block(block_name, block))
     {
         return false;
     }
 
 
-    ROS_INFO("pick up: block: %s; location: %s", block.c_str(), location.c_str());
-    ROS_INFO("x = %f; y = %f", p.position.x, p.position.y);
+    ROS_INFO("pick up: block: %s; location: %s", block_name.c_str(), location_name.c_str());
+    ROS_INFO("location: x = %f; y = %f", location_pose.position.x, location_pose.position.y);
+    ROS_INFO("block: id = %lu", block.id);
 
     ros::NodeHandle n;
 
     ros::ServiceClient client = n.serviceClient<manipulation::kmr19_pick_up>("kmr19_manipulation_pick_up");
 
     manipulation::kmr19_pick_up srv;
-    srv.request.block_id = 1;
+    srv.request.block_id = block.id;
+
+    ROS_INFO_STREAM("request: " << srv.request);
+
+    return true; // temporary for testing
 
     if (client.call(srv))
     {
