@@ -106,7 +106,7 @@ def block_list_stacked_scene():
 
 def handle_get_scene(req):
 
-    block_list = block_list_stacked_scene2()
+    block_list = block_list_simple_scene()
     success = True
 
     return GetSceneResponse(success, block_list)
