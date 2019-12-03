@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-#TODO: Scene update from perception
+#TODO: Scene update from perception --> via database from planning
+#TODO: change scene objects to block message
 
 import sys
 import copy

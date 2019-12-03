@@ -5,7 +5,7 @@ import rospy
 from perception.srv import GetScene, GetSceneResponse
 from perception.msg import Block
 
-def get_defined_block1_from_test_scene():
+def get_defined_block_from_test_scene():
     block = Block()
     block.id = 1
     block.type = block.CUBOID
@@ -19,94 +19,14 @@ def get_defined_block1_from_test_scene():
 
     block.pose.pose.position.x = 0.785
     block.pose.pose.position.y = 0.075
-    block.pose.pose.position.z = -0.2 + block.height/2.
-
-    # no orientation (=0)
+    block.pose.pose.position.z = -0.16
 
 
     return block
-
-def get_defined_block2_from_test_scene():
-    block = Block()
-    block.id = 2
-    block.type = block.CUBOID
-    block.color = block.YELLOW
-
-    block.width = 20./1000.
-    block.depth = 40./1000.
-    block.height = 80./1000.
-
-    block.pose.header.frame_id = '/world'
-
-    block.pose.pose.position.x = 0.785
-    block.pose.pose.position.y = 0.275
-    block.pose.pose.position.z = -0.2 + block.height/2.
-
-    # no orientation (=0)
-
-
-    return block
-
-def get_block_stacked_on_block1_from_test_scene():
-    block = Block()
-    block.id = 3
-    block.type = block.CUBOID
-    block.color = block.BLUE
-
-    block.width = 20./1000.
-    block.depth = 40./1000.
-    block.height = 80./1000.
-
-    block.pose.header.frame_id = '/world'
-
-    block.pose.pose.position.x = 0.785
-    block.pose.pose.position.y = 0.075
-    block.pose.pose.position.z = get_defined_block1_from_test_scene().pose.pose.position.z + get_defined_block1_from_test_scene().height/2 + block.height/2 # position from block1 + half height of block 1 + half height of new block
-
-    # no orientation (=0)
-
-
-    return block
-
-def get_block_stacked_on_block3_from_test_scene():
-    block = Block()
-    block.id = 4
-    block.type = block.CUBOID
-    block.color = block.RED
-
-    block.width = 20./1000.
-    block.depth = 40./1000.
-    block.height = 80./1000.
-
-    block.pose.header.frame_id = '/world'
-
-    block.pose.pose.position.x = 0.785
-    block.pose.pose.position.y = 0.075
-    block.pose.pose.position.z = get_block_stacked_on_block1_from_test_scene().pose.pose.position.z + get_block_stacked_on_block1_from_test_scene().height/2 + block.height/2 # position from block3 + half height of block 3 + half height of new block
-
-    # no orientation (=0)
-
-
-    return block
-
-def block_list_simple_scene():
-    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene()]
-
-
-def block_list_stacked_scene2():
-    # yellow_block is on loc1, blue_block is stacked on yellow_block, red block is again stacked on yellow block
-    # other yellow block is on loc2, 
-    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene(), get_block_stacked_on_block1_from_test_scene(), get_block_stacked_on_block3_from_test_scene()]
-
-def block_list_stacked_scene():
-    # yellow_block is on loc1, blue_block is stacked on yellow_block
-    # other yellow block is on loc2, third 
-    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene(), get_block_stacked_on_block1_from_test_scene()]
-    
 
 def handle_get_scene(req):
 
-    block_list = block_list_simple_scene()
+    block_list = [get_defined_block_from_test_scene()]
     success = True
 
     return GetSceneResponse(success, block_list)
@@ -114,7 +34,7 @@ def handle_get_scene(req):
 def get_scene_server():
     rospy.init_node('get_scene_server')
     s = rospy.Service('get_scene', GetScene, handle_get_scene)
-    print "Ready to provide service get_scene for test scene with two blocks."
+    print "Ready to get test scene."
     rospy.spin()
 
 if __name__ == "__main__":

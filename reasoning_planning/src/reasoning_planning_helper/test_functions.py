@@ -1,7 +1,20 @@
+#!/usr/bin/env python
+
+# START - for debugging in visual studio code
+# import ptvsd
+
+# # 5678 is the default attach port in the VS Code debug configurations
+# print("Waiting for debugger attach")
+# ptvsd.enable_attach(address=('localhost', 5678), redirect_output=True)
+# ptvsd.wait_for_attach()
+# breakpoint()
+
+# END - for debugging in visual studio code
+
 import rospy
 
-from knowledge_base_helper import *
-from rosplan_service_call_helper import *
+from reasoning_planning_helper.knowledge_base_helper import *
+from reasoning_planning_helper.rosplan_service_call_helper import *
 
 
 from std_msgs.msg import String
@@ -18,9 +31,34 @@ from geometry_msgs.msg import Pose, Point, Quaternion
 
 from tf.transformations import *
 
-from perception.srv import GetScene, GetSceneResponse
-from perception.msg import Block
+def plan_printer(plan):
+    print "Printing plan:"
+    print plan.data
 
+def add_location(name, x, y, yaw = 0):
+    if not add_instance("location", name):
+        return -1
+
+    msg_store = MessageStoreProxy()
+
+    q = quaternion_from_euler(0,0,yaw)
+
+    p = Pose(Point(x,y,0), Quaternion(*q))
+
+    location_id = msg_store.insert_named(name, p)
+
+    return location_id
+
+def get_location_pose(name):
+    msg_store = MessageStoreProxy()
+
+    p = msg_store.query_named(name, Pose._type)
+
+    if p == None:
+        raise LookupError("Location is not found in scene database", name)
+
+    return p
+    
 
 def test_create_init_knowledge_base():
 
@@ -68,7 +106,7 @@ def test_create_init_knowledge_base():
 
     result = update_array_service(update_types, update_items)
 
-    rospy.loginfo('return of adding instances of blocks:')
+    print 'return of adding instances of blocks:'
     print result
 
     add_location("loc1", 1, 11)
@@ -84,7 +122,7 @@ def test_create_init_knowledge_base():
     result = update_service(
         KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, update_item)
 
-    rospy.loginfo('result of add for \'hand_empty\'')
+    print 'result of add for \'hand_empty\''
     print result
 
     update_item = KnowledgeItem()
@@ -102,7 +140,7 @@ def test_create_init_knowledge_base():
     result = update_service(
         KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, update_item)
 
-    rospy.loginfo('result of add for \'on_table yellow_block loc1\'')
+    print 'result of add for \'on_table yellow_block loc1\''
     print result
 
     # do the rest via nice helper functions
@@ -175,7 +213,7 @@ def test_create_init_knowledge_base_manipulation_simple():
 
     result = update_array_service(update_types, update_items)
 
-    rospy.loginfo('return of adding instances of blocks:')
+    print 'return of adding instances of blocks:'
     print result
 
     add_location("loc1", 0.93, 0.3)
@@ -200,11 +238,34 @@ def test_scene_and_goal_simple_manipulation():
 
     test_set_goal_manipulation_simple()
 
-def test_set_goal_for_stacked_test_scene():
-    # set some goal statically from stacked test scene (see perception_test_service_node, function block_list_stacked_scene)
+def main():
 
-    update_fact_hand_empty(KnowledgeUpdateServiceRequest.ADD_GOAL)
+    # init
 
-    update_fact_on_table(KnowledgeUpdateServiceRequest.ADD_GOAL, 'block1', 'loc2')
-    update_fact_on_table(KnowledgeUpdateServiceRequest.ADD_GOAL, 'block2', 'loc1')
-    update_fact_on(KnowledgeUpdateServiceRequest.ADD_GOAL,'block3', 'block2')
+    rospy.init_node('reasoning_planning_interface', anonymous=True)
+
+    rospy.Subscriber(
+        '/rosplan_planner_interface/planner_output', String, plan_printer)
+
+   
+    test_scene_and_goal_simple_manipulation()
+
+
+
+    goal_reached = False
+    while not goal_reached:
+        generate_problem()
+        generate_plan()
+
+        parse_plan()
+        goal_reached = dispatch_plan()
+
+        goal_reached = True # hack to only do once
+
+    print "end of main reached!"
+
+    #rospy.spin()
+
+
+if __name__ == '__main__':
+    main()    msg_store = MessageStoreProxy()

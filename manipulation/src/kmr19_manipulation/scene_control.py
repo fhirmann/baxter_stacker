@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 
+#TODO: Block Message depth --> x coordinate, width --> y coordinate
+
 import rospy
 import moveit_commander
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Pose
+
+from mongodb_store.message_store import MessageStoreProxy
+from perception.msg import Block
 
 class kmr19SceneControl:
   def __init__(self):
     self.scene = moveit_commander.PlanningSceneInterface()
     self.scene_blocks = []
-    self.block_id = 0
     self.robot = moveit_commander.RobotCommander()
 
   def addFixedSceneObjects(self):
@@ -21,17 +25,18 @@ class kmr19SceneControl:
       print("[kmr19SceneCtrl addFixedSceneObjects]: Not able to clear scene!")
     rospy.sleep(0.1)
 
-    new_obj = scene_object()    
-    new_obj.name = "table"
-    new_obj.id = self.block_id
-    new_obj.color = "white"
-    new_obj.mid_pose.header.frame_id = "/world"
-    new_obj.mid_pose.pose.position.x = 0.93
-    new_obj.mid_pose.pose.position.y = 0.3
-    new_obj.mid_pose.pose.position.z = -0.55 
-    new_obj.size = (0.9, 1.6, 0.7)
-    self.addBlockToScene(new_obj)
+    #add table to MoveIt scene only
+    table_pose = Pose()
+    table_pose.position.x = 0.93
+    table_pose.position.y = 0.3
+    table_pose.position.z = -0.55
+    table_size = (0.9, 1.6, 0.7)
+    # add to MoveIt scene
+    self.scene.add_box("table", table_pose, table_size)
+    # wait until scene is changed
+    self.checkObject(3, "table", obj_is_attached=False, obj_is_known=True)
 
+    '''
     new_obj = scene_object()    
     new_obj.name = "block_1"
     new_obj.id = self.block_id
@@ -53,18 +58,9 @@ class kmr19SceneControl:
     new_obj.mid_pose.pose.position.z = -0.16
     new_obj.size = (0.04, 0.02, 0.08)
     self.addBlockToScene(new_obj)
+    '''
 
     print("[kmr19SceneCtrl addFixedSceneObjects]: added fixed scene objects!")
-
-  def addBlockToScene(self, block):
-    #add block to SceneControl
-    self.scene_blocks.append(block)
-    self.block_id += 1
-
-    #add to MoveIt scene
-    self.scene.add_box( block.name, block.mid_pose, block.size )
-    #wait until scene is changed
-    self.checkObject(3, block.name, obj_is_attached=False, obj_is_known=True)
 
   def isBlockInScene(self, id):
     for index, item in enumerate(self.scene_blocks):
@@ -145,6 +141,20 @@ class kmr19SceneControl:
 
     # If we exited the while loop without returning then we timed out
     return False
+
+  def loadSceneDatabase(self):
+    msg_store = MessageStoreProxy()
+
+    #empty scene objects
+    del self.scene_blocks[:]
+    # get all blocks from
+    self.scene_blocks = msg_store.query(Block._type)
+
+    #add blocks from database to MoveIt scene
+    for block in self.scene_blocks:
+      self.addBlockToPlanningScene(block=block)
+
+    print(self.scene_blocks)
 
 class scene_object:
   def __init__(self, name="", id=0, color="", size=(1,1,1)):
