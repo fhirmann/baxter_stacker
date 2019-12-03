@@ -26,39 +26,16 @@ class kmr19SceneControl:
     rospy.sleep(0.1)
 
     #add table to MoveIt scene only
-    table_pose = Pose()
-    table_pose.position.x = 0.93
-    table_pose.position.y = 0.3
-    table_pose.position.z = -0.55
+    table_pose = PoseStamped()
+    table_pose.header.frame_id = "world"
+    table_pose.pose.position.x = 0.93
+    table_pose.pose.position.y = 0.3
+    table_pose.pose.position.z = -0.55
     table_size = (0.9, 1.6, 0.7)
     # add to MoveIt scene
     self.scene.add_box("table", table_pose, table_size)
     # wait until scene is changed
     self.checkObject(3, "table", obj_is_attached=False, obj_is_known=True)
-
-    '''
-    new_obj = scene_object()    
-    new_obj.name = "block_1"
-    new_obj.id = self.block_id
-    new_obj.color = "yellow"
-    new_obj.mid_pose.header.frame_id = "/world"
-    new_obj.mid_pose.pose.position.x = 0.785
-    new_obj.mid_pose.pose.position.y = 0.075
-    new_obj.mid_pose.pose.position.z = -0.16
-    new_obj.size = (0.04, 0.04, 0.08)
-    self.addBlockToScene(new_obj)
-
-    new_obj = scene_object()
-    new_obj.name = "block_2"
-    new_obj.id = self.block_id
-    new_obj.color = "yellow"
-    new_obj.mid_pose.header.frame_id = "/world"
-    new_obj.mid_pose.pose.position.x = 0.785
-    new_obj.mid_pose.pose.position.y = 0.275
-    new_obj.mid_pose.pose.position.z = -0.16
-    new_obj.size = (0.04, 0.02, 0.08)
-    self.addBlockToScene(new_obj)
-    '''
 
     print("[kmr19SceneCtrl addFixedSceneObjects]: added fixed scene objects!")
 
@@ -67,7 +44,7 @@ class kmr19SceneControl:
       if item.id == id:
         return True, item
 
-    return False, scene_object()
+    return False, Block()
 
   def updateBlockInScene(self, block):
     for index, item in enumerate(self.scene_blocks):
@@ -79,25 +56,11 @@ class kmr19SceneControl:
     return self.checkObject(3, block_name, obj_is_attached=False, obj_is_known=False)
 
   def addBlockToPlanningScene(self, block):
+    name = str(block.id)
     # add to MoveIt scene
-    self.scene.add_box(block.name, block.mid_pose, block.size)
+    self.scene.add_box(name, block.pose, size=(block.depth, block.width, block.height))
     # wait until scene is changed
-    return self.checkObject(3, block.name, obj_is_attached=False, obj_is_known=True)
-
-  '''  
-  def attachBlockToArm(self, block, arm='left'):
-    if(arm=='left'):
-      eef_link = 'left_gripper'
-      touch_links = self.robot.get_link_names(group='left_arm')
-    if(arm=='right'):
-      eef_link = 'right_gripper'
-      touch_links = self.robot.get_link_names(group='right_arm')
-
-    #attach in MoveIt scene
-    self.scene.attach_box(eef_link, block.name, pose=block.mid_pose, size=block.size, touch_links=touch_links)
-    #check if object action was successful
-    return self.checkObject(3, block.name, obj_is_attached=True, obj_is_known=False)
-  '''
+    return self.checkObject(3, name, obj_is_attached=False, obj_is_known=True)
 
   def checkObject(self, timeout, name, obj_is_attached=False, obj_is_known=False):
     #copied from http://docs.ros.org/kinetic/api/moveit_tutorials/html/doc/move_group_python_interface/move_group_python_interface_tutorial.html
@@ -148,20 +111,13 @@ class kmr19SceneControl:
     #empty scene objects
     del self.scene_blocks[:]
     # get all blocks from
-    self.scene_blocks = msg_store.query(Block._type)
+    data = msg_store.query(Block._type)
 
     #add blocks from database to MoveIt scene
-    for block in self.scene_blocks:
+    for (block, meta) in data:
+      self.scene_blocks.append(block)
       self.addBlockToPlanningScene(block=block)
 
-    print(self.scene_blocks)
 
-class scene_object:
-  def __init__(self, name="", id=0, color="", size=(1,1,1)):
-    self.mid_pose = PoseStamped()
-    self.color = color
-    self.name = name
-    self.id = id
-    self.size = size
-    #self.shape
+
 

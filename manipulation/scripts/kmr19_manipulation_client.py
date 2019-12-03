@@ -36,9 +36,9 @@ if __name__ == "__main__":
   block_pose.pose.position.z = -0.08
 
   #### UNSTACK
-  #block_pose.pose.position.x = 0.785
-  #block_pose.pose.position.y = 0.268 #= 0.08
-  #block_pose.pose.position.z = -0.16
+  block_pose.pose.position.x = 0.785
+  block_pose.pose.position.y = 0.4 #= 0.08
+  block_pose.pose.position.z = -0.16
 
   success = putdown(block_pose)
   print "kmr pit down successful? ", success

@@ -4,8 +4,7 @@ import copy
 import moveit_commander
 import baxter_interface
 from baxter_interface import CHECK_VERSION
-
-from scene_control import scene_object
+from perception.msg import Block
 
 class kmr19ArmCtrl:
   def __init__(self):
@@ -23,8 +22,8 @@ class kmr19ArmCtrl:
 
     self.l_holds_block = False
     self.r_holds_block = False
-    self.l_block = scene_object()
-    self.r_block = scene_object()
+    self.l_block = Block()
+    self.r_block = Block()
 
   def moveToInitlPosition(self, arm='left'):
     if (arm == 'left'):
@@ -275,7 +274,7 @@ class kmr19ArmCtrl:
       touch_links.append('r_gripper_l_finger_tip')
       touch_links.append('r_gripper_r_finger_tip')
 
-    group.attach_object(link_name=eef_link, object_name=block.name, touch_links=touch_links)
+    group.attach_object(link_name=eef_link, object_name=str(block.id), touch_links=touch_links)
 
   def detachBlock(self, block_name="", arm='left'):
     group = self.group_l

@@ -13,7 +13,6 @@ from manipulation.srv import kmr19_pick_up, kmr19_pick_upResponse, kmr19_put_dow
 import robot_control
 import scene_control
 import arm_control
-from scene_control import scene_object
 
 # predefine global control objects
 robot_ctrl = 0
@@ -31,6 +30,9 @@ def handle_pick_up(req):
 
   print("[kmr19_manipulation_server]: Got request to pick up block with ID: ", req.block_id)
 
+  #load scene from data base
+  scene_ctrl.loadSceneDatabase()
+
   #check if robot already holds block
   if arm_ctrl.l_holds_block:
     print("[kmr19_manipulation_server]: Robot already picked up a block")
@@ -42,23 +44,23 @@ def handle_pick_up(req):
     print("[kmr19_manipulation_server]: Block to pick up is not in scene")
     return kmr19_pick_upResponse(False)
 
-  h_dif = block.size[2] * 1.5
+  h_dif = block.height * 1.5
 
   #plan and execute pre grasp procedure
-  plan = arm_ctrl.planBlockPickup(block_pose=block.mid_pose, height_dif=h_dif, arm='left')
+  plan = arm_ctrl.planBlockPickup(block_pose=block.pose, height_dif=h_dif, arm='left')
   if not arm_ctrl.executePlan(plan):
     print("[kmr19_manipulation_server]: Robot failed during pre grasp pose")
     return kmr19_pick_upResponse(False)
   rospy.sleep(1.5)
 
   #remove block from planning scene
-  removed = scene_ctrl.removeBlockFromPlanningScene(block_name=block.name)
+  removed = scene_ctrl.removeBlockFromPlanningScene(block_name=str(block.id))
   if not removed:
     print("[kmr19_manipulation_server]: Planning Scene error during pick up")
     return kmr19_pick_upResponse(False)
 
   #get motion plan for block pickup
-  plan = arm_ctrl.planBlockPickup(block_pose=block.mid_pose, height_dif=0, arm='left')
+  plan = arm_ctrl.planBlockPickup(block_pose=block.pose, height_dif=0, arm='left')
   # execute plan
   if not arm_ctrl.executePlan(plan):
     print("[kmr19_manipulation_server]: Robot failed during grasp pose")
@@ -66,7 +68,6 @@ def handle_pick_up(req):
   rospy.sleep(1)
 
   # close gripper
-  #gripped = arm_ctrl.pickupBlock(arm='left')
   gripped = arm_ctrl.pickupBlock(arm='left')
   # add block to scene and attach to arm
   added = scene_ctrl.addBlockToPlanningScene(block)
@@ -77,7 +78,7 @@ def handle_pick_up(req):
     return kmr19_pick_upResponse(False)
 
   #plan and execute post grasp procedure
-  plan = arm_ctrl.planBlockPickup(block_pose=block.mid_pose, height_dif=h_dif, arm='left')
+  plan = arm_ctrl.planBlockPickup(block_pose=block.pose, height_dif=h_dif, arm='left')
   if not arm_ctrl.executePlan(plan):
     print("[kmr19_manipulation_server]: Robot failed during post grasp pose")
     return kmr19_pick_upResponse(False)
@@ -106,7 +107,7 @@ def handle_put_down(req):
     print("[kmr19_manipulation_server]: Robot has to pick up a block first")
     return kmr19_put_downResponse(False)
 
-  h_dif = arm_ctrl.l_block.size[2] * 1.5
+  h_dif = arm_ctrl.l_block.height * 1.5
 
   #plan and execute pre release procedure
   plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position.pose, height_dif=h_dif, arm='left')
@@ -126,10 +127,10 @@ def handle_put_down(req):
   arm_ctrl.releaseBlock()
 
   #detach block
-  arm_ctrl.detachBlock(block_name=arm_ctrl.l_block.name)
+  arm_ctrl.detachBlock(block_name=str(arm_ctrl.l_block.id))
 
   # remove block from planning scene
-  removed = scene_ctrl.removeBlockFromPlanningScene(block_name=arm_ctrl.l_block.name)
+  removed = scene_ctrl.removeBlockFromPlanningScene(block_name=str(arm_ctrl.l_block.id))
   if not removed:
     print("[kmr19_manipulation_server]: Planning Scene error during put down")
     return kmr19_put_downResponse(False)
@@ -142,7 +143,7 @@ def handle_put_down(req):
   rospy.sleep(0.5)
 
   #change position of block
-  arm_ctrl.l_block.mid_pose = req.end_position
+  arm_ctrl.l_block.pose = req.end_position
 
   # add block to scene
   if not scene_ctrl.addBlockToPlanningScene(arm_ctrl.l_block):
@@ -182,9 +183,9 @@ def kmr19_manipulation_server():
 
   #init position and gripper init
   left_arm_init = arm_ctrl.moveToInitlPosition(arm='left')
-  left_gripper_init = arm_ctrl.initGripper(arm='left', gripper_open=True, block=True)
+  left_gripper_init = arm_ctrl.initGripper(arm='left', gripper_open=True, block=False)
   right_arm_init = arm_ctrl.moveToInitlPosition(arm='right')
-  right_gripper_init = arm_ctrl.initGripper(arm='right', gripper_open=True, block=True)
+  right_gripper_init = arm_ctrl.initGripper(arm='right', gripper_open=True, block=False)
 
   print("[kmr19_manipulation_server]: Left arm init successful? ", left_arm_init)
   print("[kmr19_manipulation_server]: Left gripper init successful? ", left_gripper_init)
