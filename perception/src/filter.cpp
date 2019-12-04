@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_listener.h>
 #include <pcl/common/common.h>
@@ -25,6 +26,11 @@
 
 #include <pcl/visualization/cloud_viewer.h>
 
+#include "perception/GetScene.h"
+#include "perception/Block.h"
+
+#define GLOBAL_FRAME_ID "/world"
+#define CAMERA_FRAME_ID "/camera_link"
 
 /*============================================================================*/
 /*==== Transform point cloud to baxter base  =================================*/
@@ -37,6 +43,7 @@ class Filter
     
     ros::NodeHandle nh_;
     ros::Subscriber point_cloud_sub_;
+    ros::ServiceServer service_;
 
     ros::Publisher  input_pc_pub_;
     ros::Publisher  transformed_pc_pub_;
@@ -63,7 +70,7 @@ class Filter
 
 
 
-    int first = 0; 
+    int first; 
 
   public:
     Filter(ros::NodeHandle nh):
@@ -85,7 +92,10 @@ class Filter
 
       // Create a ROS subscriber for the input point cloud
       //point_cloud_sub_ = nh_.subscribe ("/camera/depth_registered/points", 1, &Filter::sensor_msg_callback, this);
-
+      
+      // advertise new ros service GetScene
+      service_ = nh_.advertiseService("get_scene", &Filter::get_scene_callback, this);
+      
       // Create a ROS publisher for the output point cloud
       input_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB> >("/filter_input", 1);
       transformed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB> >("/filter_transformed", 1);
@@ -129,10 +139,10 @@ class Filter
 	    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_transformed(new pcl::PointCloud<pcl::PointXYZRGB>);
 	    
 	    ros::Time time_st = ros::Time(0);
-      tf_listener_.waitForTransform( "/torso", cloud->header.frame_id, time_st, ros::Duration(1.0));
+      tf_listener_.waitForTransform( GLOBAL_FRAME_ID, cloud->header.frame_id, time_st, ros::Duration(1.0));
       
       //  if it could not convert into baxters frame return error
-    	if(!pcl_ros::transformPointCloud( "/torso", *cloud, *cloud_transformed, tf_listener_))
+    	if(!pcl_ros::transformPointCloud( GLOBAL_FRAME_ID, *cloud, *cloud_transformed, tf_listener_))
     	{
       	ROS_ERROR("Error converting to desired frame");
         return cloud_transformed;
@@ -376,14 +386,17 @@ class Filter
 
     /*============================================================================*/
 
-    void object_extraction( std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters)
+    void object_extraction( std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters, bool* success, std::vector<perception::Block>* blocks)
     {
       std::cout << "object_extraction " << color_clusters->size() << std::endl;
-      
+
+      *success = false;      
+
       // for each cluster
       for(int i = 0; i < color_clusters->size(); i++)
 	    {
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = color_clusters->at(i);
+        perception::Block block;
 
         std::cout << "cloud size " << cloud->points.size() << std::endl; 
 
@@ -402,21 +415,44 @@ class Filter
           &g_min, &g_max, &g_mean, &b_min, &b_max, &b_mean);
 
 
+        block.id = i;
+        block.type = perception::Block::CUBOID;
+
         // extract size and check if plausible
+        block.width = x_max - x_min;
+        block.depth = y_max - y_min;
+        block.height = z_max - z_min;
 
-        // extract position
+        // extract position and orientation
+        geometry_msgs::PoseStamped poseStamped;
+        poseStamped.header.frame_id = GLOBAL_FRAME_ID;
 
-        // extract orientation
+        poseStamped.pose.position.x = x_mean;
+        poseStamped.pose.position.y = y_mean;
+        poseStamped.pose.position.z = z_mean;
+        
+        double theta = 0.0;
+        tf::Quaternion q = tf::createQuaternionFromRPY(0 , 0, theta);
+        poseStamped.pose.orientation.w = q.getW();
+        poseStamped.pose.orientation.x = q.getX();
+        poseStamped.pose.orientation.y = q.getY();
+        poseStamped.pose.orientation.z = q.getZ();
+
+        block.pose = poseStamped;
 
         // extract color
-      }
+        block.color = perception::Block::YELLOW;
+
+        blocks->push_back(block);
+        *success = true;
+      }      
     }
 
 
     /*============================================================================*/
     /*====== process the point cloud =============================================*/
     /*============================================================================*/
-    void process_point_cloud( pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud)
+    void process_point_cloud( pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud, bool* success, std::vector<perception::Block>* blocks)
     {
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud;
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr trimmed_cloud;
@@ -427,37 +463,29 @@ class Filter
       // Load all parameters
       load_parameters();
 
-      if( first == 0)
-      {
-        pcl::io::savePCDFileASCII ("/home/baxter/process.pcd", *input_cloud);
-      }
-
       // Do data processing here...
 
       // transform to baxter axis
       transformed_cloud = transform_to_baxters_axis( input_cloud);
       std::cout << "\ntransformed_cloud: " << transformed_cloud->points.size() << std::endl;
       if (transformed_cloud->points.size() == 0){ 
+        *success = false;
         return;
-      }
-      
-      if( first == 0)
-      {
-        pcl::io::savePCDFileASCII ("/home/baxter/transformed.pcd", *input_cloud);
-        first = 1;
       }
 
       // Limit points corresponding to table
       trimmed_cloud = limit_points_to_table( transformed_cloud);
       std::cout << "trimmed_cloud: " << trimmed_cloud->points.size() << std::endl;
       if (trimmed_cloud->points.size() == 0){ 
+        *success = false;
         return;
       }
 
       // remove table surface (planar model) from the cloud
       table_removed_cloud = plane_segmentation( trimmed_cloud);
       std::cout << "table_removed_cloud: " << table_removed_cloud->points.size() << std::endl;
-      if (table_removed_cloud->points.size() == 0){ 
+      if (table_removed_cloud->points.size() == 0){
+        *success = false; 
         return;
       }
 
@@ -465,11 +493,12 @@ class Filter
       color_clusters = color_segmentation( table_removed_cloud);
       std::cout << "color_segementation nr of clusters: " << color_clusters->size() << std::endl;
       if (color_clusters->size() == 0){ 
+        *success = false;
         return;
       }
 
       // extract object information
-      object_extraction( color_clusters);
+      object_extraction( color_clusters, success, blocks );
 
       // Publish the data.
       input_pc_pub_.publish( *input_cloud);
@@ -483,22 +512,39 @@ class Filter
     /*====== callbacks ===========================================================*/
     /*============================================================================*/
 
-    void sensor_msg_callback (const sensor_msgs::PointCloud2ConstPtr& input)
+    void sensor_msg_callback (const sensor_msgs::PointCloud2ConstPtr& input, bool* success, std::vector<perception::Block>* blocks)
     {      
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
       
       // convert msgs to point cloud
       pcl::fromROSMsg(*input, *input_cloud);
 
-      // store point cloud for debug mode
-      if( first == 0)
-      {
-        pcl::io::savePCDFileASCII ("robot_pcd.pcd", *input_cloud);
-      }
+      process_point_cloud( input_cloud, success, blocks);
+    }
 
-      //std::cout << "header of input cloud: " << input_cloud->header << std::endl;
 
-      process_point_cloud( input_cloud);
+
+    bool get_scene_callback( perception::GetScene::Request  &req,
+                             perception::GetScene::Response &res)
+    {
+      std::cout << "requested get scene service" << std::endl;
+    
+      //define output variables
+      bool success = false;
+      std::vector<perception::Block>* blocks = new std::vector<perception::Block>;      
+
+      //get data from camera
+      sensor_msgs::PointCloud2ConstPtr msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/camera/depth_registered/points", nh_, ros::Duration(10));
+      
+      //process data
+      sensor_msg_callback( msg, &success, blocks);
+
+      //return output
+      res.success = success;
+      res.blocks = *blocks;
+      
+      std::cout << "sending back response " << std::endl;
+      return true;
     }
 };
 
@@ -513,7 +559,7 @@ int main (int argc, char** argv)
   // Initialize ROS
   ros::init (argc, argv, "baxter_perception");
   ros::NodeHandle nh;
-  ros::Rate rate(0.5);
+  //ros::Rate rate(0.5);
   
   Filter* filter = new Filter(nh);
   std::cout << "init done" << std::endl;
@@ -550,13 +596,15 @@ int main (int argc, char** argv)
   }*/
 
   // if it is not in debug mode - get message --> extract object info --> publish info --> repeat at a 1Hz frequency
-  while (ros::ok())
+  /*while (ros::ok())
   {
     sensor_msgs::PointCloud2ConstPtr msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/camera/depth_registered/points", nh, ros::Duration(10));
     filter->sensor_msg_callback( msg);
     rate.sleep();
-  }
+  }*/
 
   // Spin
-  ros::spin ();
+  ros::spin();
+
+  return 0;
 }
