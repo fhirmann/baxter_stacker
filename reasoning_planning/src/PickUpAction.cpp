@@ -45,8 +45,6 @@ bool PickUpAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch:
 
     ROS_INFO_STREAM("request: " << srv.request);
 
-    return true; // temporary for testing
-
     if (client.call(srv))
     {
         ROS_INFO("Success: %d", (int)srv.response.success);
