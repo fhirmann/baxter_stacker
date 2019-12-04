@@ -473,6 +473,8 @@ class Filter
         return;
       }
 
+	pcl::io::savePCDFileASCII("transformt.pcd", *transformed_cloud);
+
       // Limit points corresponding to table
       trimmed_cloud = limit_points_to_table( transformed_cloud);
       std::cout << "trimmed_cloud: " << trimmed_cloud->points.size() << std::endl;
@@ -559,7 +561,7 @@ int main (int argc, char** argv)
   // Initialize ROS
   ros::init (argc, argv, "baxter_perception");
   ros::NodeHandle nh;
-  //ros::Rate rate(0.5);
+  ros::Rate rate(0.5);
   
   Filter* filter = new Filter(nh);
   std::cout << "init done" << std::endl;
@@ -596,12 +598,16 @@ int main (int argc, char** argv)
   }*/
 
   // if it is not in debug mode - get message --> extract object info --> publish info --> repeat at a 1Hz frequency
-  /*while (ros::ok())
+  while (ros::ok())
   {
+	bool success = false;
+      std::vector<perception::Block>* blocks = new std::vector<perception::Block>;      
+
+
     sensor_msgs::PointCloud2ConstPtr msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/camera/depth_registered/points", nh, ros::Duration(10));
-    filter->sensor_msg_callback( msg);
+    filter->sensor_msg_callback( msg, &success, blocks);
     rate.sleep();
-  }*/
+  }
 
   // Spin
   ros::spin();
