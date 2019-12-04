@@ -51,7 +51,7 @@
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>rospy</build_depend>
   <build_depend>std_msgs</build_depend>
-  <build_depend>rosplan_planning_systen</build_depend>
+  <build_depend>rosplan_planning_system</build_depend>
   <build_depend>message_generation</build_depend>
 
   <build_export_depend>rospy</build_export_depend>
