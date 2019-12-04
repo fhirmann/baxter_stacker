@@ -473,7 +473,7 @@ class Filter
         return;
       }
 
-	pcl::io::savePCDFileASCII("transformt.pcd", *transformed_cloud);
+	//	pcl::io::savePCDFileASCII("transformt.pcd", *transformed_cloud);
 
       // Limit points corresponding to table
       trimmed_cloud = limit_points_to_table( transformed_cloud);
