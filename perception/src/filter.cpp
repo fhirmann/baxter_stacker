@@ -70,7 +70,7 @@ class Filter
 
 
 
-    int first; 
+    int first = 0; 
 
   public:
     Filter(ros::NodeHandle nh):
@@ -458,6 +458,11 @@ class Filter
       // Load all parameters
       load_parameters();
 
+      if( first == 0)
+      {
+        pcl::io::savePCDFileASCII ("/home/baxter/process.pcd", *input_cloud);
+      }
+
       // Do data processing here...
 
       // transform to baxter axis
@@ -466,6 +471,12 @@ class Filter
       if (transformed_cloud->points.size() == 0){ 
         *success = false;
         return;
+      }
+      
+      if( first == 0)
+      {
+        pcl::io::savePCDFileASCII ("/home/baxter/transformed.pcd", *input_cloud);
+        first = 1;
       }
 
       // Limit points corresponding to table
@@ -514,8 +525,16 @@ class Filter
       // convert msgs to point cloud
       pcl::fromROSMsg(*input, *input_cloud);
 
+<<<<<<< HEAD
       process_point_cloud( input_cloud, success, blocks);
     }
+=======
+      // store point cloud for debug mode
+      if( first == 0)
+      {
+        pcl::io::savePCDFileASCII ("robot_pcd.pcd", *input_cloud);
+      }
+>>>>>>> 9a59d4c97900e0a02236e6a50c8081b07c0d211f
 
 
 
