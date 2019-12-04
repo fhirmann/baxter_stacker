@@ -114,6 +114,7 @@ def handle_put_down(req):
   if not arm_ctrl.executePlan(plan):
     print("[kmr19_manipulation_server]: Robot failed during pre release pose")
     return kmr19_put_downResponse(False)
+  print("At pre release pose")
   rospy.sleep(1.5)
 
   # plan and execute release procedure
@@ -122,6 +123,7 @@ def handle_put_down(req):
     print("[kmr19_manipulation_server]: Robot failed during release pose")
     return kmr19_put_downResponse(False)
   rospy.sleep(1)
+  print("At release pose")
 
   #release block
   arm_ctrl.releaseBlock()

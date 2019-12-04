@@ -30,7 +30,7 @@ def get_defined_block2_from_test_scene():
     block = Block()
     block.id = 2
     block.type = block.CUBOID
-    block.color = block.YELLOW
+    block.color = block.GREEN
 
     block.width = 20./1000.
     block.depth = 40./1000.
@@ -51,7 +51,7 @@ def get_block_stacked_on_block1_from_test_scene():
     block = Block()
     block.id = 3
     block.type = block.CUBOID
-    block.color = block.BLUE
+    block.color = block.RED
 
     block.width = 20./1000.
     block.depth = 40./1000.
@@ -106,7 +106,7 @@ def block_list_stacked_scene():
 
 def handle_get_scene(req):
 
-    block_list = block_list_simple_scene()
+    block_list = block_list_stacked_scene()
     success = True
 
     return GetSceneResponse(success, block_list)

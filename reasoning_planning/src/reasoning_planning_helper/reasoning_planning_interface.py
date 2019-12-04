@@ -221,6 +221,6 @@ def get_all_blocks_from_db():
 def add_init_knowledge():
     update_fact_hand_empty(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE)
     # add one extra location for temporary moving to that position
-    add_location('loc_temp', 0.1, 0.1) # TODO: set some good position for this temporary location
+    add_location('loc_temp', 0.8, -0.2) # TODO: set some good position for this temporary location
     update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'loc_temp')
 

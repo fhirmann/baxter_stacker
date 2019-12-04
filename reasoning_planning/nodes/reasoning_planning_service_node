@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 
 # START - for debugging in visual studio code
-import ptvsd
+# import ptvsd
 
-# 5678 is the default attach port in the VS Code debug configurations
-print("Waiting for debugger attach")
-ptvsd.enable_attach(address=('localhost', 5678), redirect_output=True)
-ptvsd.wait_for_attach()
-breakpoint()
+# # 5678 is the default attach port in the VS Code debug configurations
+# print("Waiting for debugger attach")
+# ptvsd.enable_attach(address=('localhost', 5678), redirect_output=True)
+# ptvsd.wait_for_attach()
+# breakpoint()
 
 # END - for debugging in visual studio code
 
@@ -261,7 +261,11 @@ def handle_stack_goal_service(req):
     if (response.success == True):
         create_knowledge_from_scene_db()
 
-        add_init_knowledge()  
+        add_init_knowledge() 
+
+        update_fact_hand_empty(KnowledgeUpdateServiceRequest.ADD_GOAL)
+    
+        update_fact_on(KnowledgeUpdateServiceRequest.ADD_GOAL,  'block{}'.format(top_blocks_filtered[0].id) , 'block{}'.format(below_blocks_filtered[0].id))
 
         
         response = achieve_goal(response)        
