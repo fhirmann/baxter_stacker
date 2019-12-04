@@ -229,23 +229,24 @@ class kmr19ArmCtrl:
     success = False    
 
     if(arm == 'left'):
-      #for i in range(0, 100):
-      #  self.left_gripper.command_position(position=float(100-i), block=True)
-      self.left_gripper.set_holding_force(50.0)
-      self.left_gripper.set_velocity(1.0)
-      self.left_gripper.set_moving_force(1.0)
-      self.left_gripper.close(block=True)
-      #print("Close Position: ", self.left_gripper_close_pos)
+      self.left_gripper.set_holding_force(80.0)
+      self.left_gripper.set_velocity(10.0)
+      self.left_gripper.set_moving_force(80.0)
+
+      for i in range(0, 80):
+        self.left_gripper.command_position(position=float(100 - i), block=True)
+
       if(self.left_gripper.position() > self.left_gripper_close_pos*1.2):
         success = True
 
     elif(arm=='right'):
-      #for i in range(0, 50):
-      #  self.left_gripper.command_position(position=float(100-i), block=True)
-      self.right_gripper.set_holding_force(50.0)
-      self.right_gripper.set_velocity(1.0)
-      self.right_gripper.set_moving_force(1.0)
-      self.right_gripper.close(block=True)
+      self.right_gripper.set_holding_force(80.0)
+      self.right_gripper.set_velocity(10.0)
+      self.right_gripper.set_moving_force(80.0)
+
+      for i in range(0, 101):
+        self.right_gripper.command_position(position=float(100 - i), block=True)
+
       if(self.right_gripper.position() > self.right_gripper_close_pos*1.2):
         success = True
     else:
@@ -285,21 +286,21 @@ class kmr19ArmCtrl:
 
   def releaseBlock(self, arm='left'):
     if(arm == 'left'):
-      #current_pos = self.left_gripper.position() + 1
-      #for i in range(int(current_pos), 101):
-      #  self.left_gripper.command_position(position=float(i), block=True)
-      self.left_gripper.set_holding_force(50.0)
-      self.left_gripper.set_velocity(1.0)
-      self.left_gripper.set_moving_force(1.0)
-      self.left_gripper.open(block=True)
+      self.left_gripper.set_holding_force(80.0)
+      self.left_gripper.set_velocity(10.0)
+      self.left_gripper.set_moving_force(80.0)
+
+      current_pos = self.left_gripper.position() + 1
+      for i in range(int(current_pos), 101):
+        self.left_gripper.command_position(position=float(i), block=True)
 
     if(arm == 'right'):
-      #current_pos = self.right_gripper.position() + 1
-      #for i in range(int(current_pos), 101):
-      #  self.right_gripper.command_position(position=float(i), block=True)
-      self.right_gripper.set_holding_force(50.0)
-      self.right_gripper.set_velocity(1.0)
-      self.right_gripper.set_moving_force(1.0)
-      self.right_gripper.open(block=True)
+      self.right_gripper.set_holding_force(80.0)
+      self.right_gripper.set_velocity(10.0)
+      self.right_gripper.set_moving_force(80.0)
+
+      current_pos = self.right_gripper.position() + 1
+      for i in range(int(current_pos), 101):
+        self.right_gripper.command_position(position=float(i), block=True)
 
     rospy.sleep(1)
