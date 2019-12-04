@@ -7,6 +7,7 @@ reasoning_planning/SyncSettings.ffs_gui
 
 reasoning_planning/common/plan.pddl
 reasoning_planning/common/problem.pddl
+reasoning_planning/common/mongoDB
 
 
 # python gitignore
