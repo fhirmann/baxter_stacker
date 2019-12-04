@@ -70,7 +70,7 @@ class Filter
 
 
 
-    int first = 0; 
+    int first; 
 
   public:
     Filter(ros::NodeHandle nh):
@@ -389,7 +389,9 @@ class Filter
     void object_extraction( std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters, bool* success, std::vector<perception::Block>* blocks)
     {
       std::cout << "object_extraction " << color_clusters->size() << std::endl;
-      
+
+      *success = false;      
+
       // for each cluster
       for(int i = 0; i < color_clusters->size(); i++)
 	    {
@@ -440,7 +442,10 @@ class Filter
 
         // extract color
         block.color = perception::Block::YELLOW;
-      }
+
+        blocks->push_back(block);
+        *success = true;
+      }      
     }
 
 
@@ -458,11 +463,6 @@ class Filter
       // Load all parameters
       load_parameters();
 
-      if( first == 0)
-      {
-        pcl::io::savePCDFileASCII ("/home/baxter/process.pcd", *input_cloud);
-      }
-
       // Do data processing here...
 
       // transform to baxter axis
@@ -471,12 +471,6 @@ class Filter
       if (transformed_cloud->points.size() == 0){ 
         *success = false;
         return;
-      }
-      
-      if( first == 0)
-      {
-        pcl::io::savePCDFileASCII ("/home/baxter/transformed.pcd", *input_cloud);
-        first = 1;
       }
 
       // Limit points corresponding to table
@@ -525,16 +519,8 @@ class Filter
       // convert msgs to point cloud
       pcl::fromROSMsg(*input, *input_cloud);
 
-<<<<<<< HEAD
       process_point_cloud( input_cloud, success, blocks);
     }
-=======
-      // store point cloud for debug mode
-      if( first == 0)
-      {
-        pcl::io::savePCDFileASCII ("robot_pcd.pcd", *input_cloud);
-      }
->>>>>>> 9a59d4c97900e0a02236e6a50c8081b07c0d211f
 
 
 
