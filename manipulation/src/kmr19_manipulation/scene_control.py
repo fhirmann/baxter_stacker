@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-#TODO: Block Message depth --> x coordinate, width --> y coordinate
-
 import rospy
 import moveit_commander
 from geometry_msgs.msg import PoseStamped, Pose

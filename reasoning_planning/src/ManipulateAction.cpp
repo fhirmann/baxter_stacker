@@ -226,3 +226,28 @@ bool ManipulateAction::get_block(std::string name, perception::Block& block)
 
     return true;
 }
+
+
+bool ManipulateAction::update_block_pose(std::string name, geometry_msgs::PoseStamped new_pose)
+{
+
+    ros::NodeHandle nh;
+    mongodb_store::MessageStoreProxy messageStore(nh);    
+
+    perception::Block block;
+
+    if(!get_block(name, block))
+    {
+        return false;
+    }
+
+    block.pose = new_pose;
+
+    if(!messageStore.updateNamed(name, block))
+    {
+        ROS_ERROR("Block for \"%s\" could not be updated. Either there is a database error or there is no block added in the scene database", name.c_str());
+        return false;
+    }
+
+    return true;
+}

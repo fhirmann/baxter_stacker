@@ -58,6 +58,11 @@ bool PutDownAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch
     if (client.call(srv))
     {
         ROS_INFO("Success: %d", (int)srv.response.success);
+
+        if (srv.response.success)
+        {
+            return update_block_pose(block_name, end_position_msg);
+        }
     }
     else
     {

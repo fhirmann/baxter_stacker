@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-#TODO: Scene update from perception --> via database from planning
-#TODO: change scene objects to block message
+#TODO: lower hdiff when grasping
+#TODO: improve table coordinates --> maybe add table frame
+#TODO: shrink moveit scene objects to avoid collision when coordiantes are noisy
 
 import sys
 import copy
