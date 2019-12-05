@@ -6,10 +6,10 @@ To make the google speech API work  you will need to possess the secret access k
 You will need to set up the path in the .bashrc by writing :
 `export GOOGLE_APPLICATION_CREDENTIALS=$HOME/catkin_ws/src/kmr19/speech_recognition/gcsapi_user_credentials.json`
 
-##Set up the dependancies##
+## Set up the dependancies ##
 
 To make this package work properly, you will need to download the Google-speech API for ROS called ros_speech_us
-[(http://wiki.ros.org/speech_recog_uc)]
+http://wiki.ros.org/speech_recog_uc
 
 This is composed of two packages, `speech_recog_uc` and `speech_recog_uc_basic`. Here we will just need to set up `speech_recog_uc_basic`.
 As explained on the page, go to the speech_recog_uc_basic/scripts folder and execute the script :
