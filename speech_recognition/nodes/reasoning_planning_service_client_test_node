@@ -1,0 +1,77 @@
+#!/usr/bin/env python
+
+# START - for debugging in visual studio code
+# import ptvsd
+
+# # 5678 is the default attach port in the VS Code debug configurations
+# print("Waiting for debugger attach")
+# ptvsd.enable_attach(address=('localhost', 5678), redirect_output=True)
+# ptvsd.wait_for_attach()
+# breakpoint()
+
+# END - for debugging in visual studio code
+
+import rospy
+
+from reasoning_planning_helper.reasoning_planning_interface import *
+
+from reasoning_planning.srv import StackGoalService, StackGoalServiceResponse, StackGoalServiceRequest
+
+
+def create_simple_test_scene_request_correct():
+    """create_simple_test_scene_request_correct create a correct stack goal for the simple test scene with two yellow blocks side-by-side
+    
+    The test scene in this case is the scene where there are two yellow blocks side by side. 
+    (see src/perception/nodes/perception_test_service_node, function block_list_simple_scene()) 
+
+    The goal is to stack the left block on the right block
+    Therefore, the according spoken command would be like 'stack the left block on the right block'
+    
+    Returns:
+        StackGoalServiceRequest -- the request
+    """
+    req = StackGoalServiceRequest()
+    req.top_block_semantics = [req.LEFT_RELATIVE]
+    req.below_block_semantics = [req.RIGHT_ABSOLUTE]
+
+    return req
+
+def create_simple_test_scene_request_ambigous():
+    """create_simple_test_scene_request create an ambigous stack goal for the simple test scene with two yellow blocks side-by-side
+    
+    The test scene in this case is the scene where there are two yellow blocks side by side. 
+    (see src/perception/nodes/perception_test_service_node, function block_list_simple_scene()) 
+
+    The goal is to stack the left block on the right block but with wrong input semantics.
+    The according spoken command would be like 'stack the left block on the yellow block'
+    
+    Returns:
+        StackGoalServiceRequest -- the request
+    """
+    req = StackGoalServiceRequest()
+    req.top_block_semantics = [req.LEFT_ABSOLUTE]
+    req.below_block_semantics = [req.YELLOW]
+
+    return req
+
+def main():
+    rospy.init_node('reasoning_planning_service_client_test_node')
+
+    rospy.loginfo("Waiting for service /stack_goal_service...")
+    rospy.wait_for_service('/stack_goal_service')
+
+    rospy.loginfo("Service /stack_goal_service is online!")
+    stack_goal_service = rospy.ServiceProxy('/stack_goal_service', StackGoalService)
+
+    req = create_simple_test_scene_request_correct()
+
+    rospy.loginfo("request:")
+    print req
+
+    response = stack_goal_service(req)
+
+    rospy.loginfo("response:")
+    print response
+
+if __name__ == "__main__":
+    main()
