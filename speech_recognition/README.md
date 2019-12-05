@@ -1,6 +1,6 @@
-#Speech recognition ROS package#
+# Speech recognition ROS package #
 
-##Set up the access key##
+## Set up the access key ##
 
 To make the google speech API work  you will need to possess the secret access key. This is available as a Json file in the package.
 You will need to set up the path in the .bashrc by writing :
