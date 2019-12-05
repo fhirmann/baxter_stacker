@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-#TODO: Scene update from perception --> via database from planning
-#TODO: change scene objects to block message
+#TODO: lower hdiff when grasping
+#TODO: improve table coordinates --> maybe add table frame
+#TODO: shrink moveit scene objects to avoid collision when coordiantes are noisy
 
 import sys
 import copy
@@ -114,6 +115,7 @@ def handle_put_down(req):
   if not arm_ctrl.executePlan(plan):
     print("[kmr19_manipulation_server]: Robot failed during pre release pose")
     return kmr19_put_downResponse(False)
+  print("At pre release pose")
   rospy.sleep(1.5)
 
   # plan and execute release procedure
@@ -122,6 +124,7 @@ def handle_put_down(req):
     print("[kmr19_manipulation_server]: Robot failed during release pose")
     return kmr19_put_downResponse(False)
   rospy.sleep(1)
+  print("At release pose")
 
   #release block
   arm_ctrl.releaseBlock()
@@ -183,9 +186,9 @@ def kmr19_manipulation_server():
 
   #init position and gripper init
   left_arm_init = arm_ctrl.moveToInitlPosition(arm='left')
-  left_gripper_init = arm_ctrl.initGripper(arm='left', gripper_open=True, block=False)
+  left_gripper_init = arm_ctrl.initGripper(arm='left', gripper_open=True, block=True)
   right_arm_init = arm_ctrl.moveToInitlPosition(arm='right')
-  right_gripper_init = arm_ctrl.initGripper(arm='right', gripper_open=True, block=False)
+  right_gripper_init = arm_ctrl.initGripper(arm='right', gripper_open=True, block=True)
 
   print("[kmr19_manipulation_server]: Left arm init successful? ", left_arm_init)
   print("[kmr19_manipulation_server]: Left gripper init successful? ", left_gripper_init)

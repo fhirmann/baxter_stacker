@@ -29,6 +29,8 @@ protected:
 	bool get_block_top_position(std::string name, Pose& p);
 	bool get_block(std::string name, perception::Block& block);
 
+	bool update_block_pose(std::string name, geometry_msgs::PoseStamped new_pose);
+
 	bool get_where_on_table(std::string block_name, std::string& found_location_name);
 	bool get_where_on(std::string block_name, std::string& found_block_bottom_name);
 

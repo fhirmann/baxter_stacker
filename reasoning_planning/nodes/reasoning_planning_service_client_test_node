@@ -36,6 +36,24 @@ def create_simple_test_scene_request_correct():
 
     return req
 
+def create_simple_stacked_test_scene_request_correct():
+    """create_simple_test_scene_request_correct create a correct stack goal for the simple stacked test scene
+    
+    The test scene in this case is the scene where there are two yellow blocks side by side. 
+    (see src/perception/nodes/perception_test_service_node, function block_list_stacked_scene()) 
+
+    The goal is to stack the left block on the right block
+    Therefore, the according spoken command would be like 'stack the yellow block on the right block'
+    
+    Returns:
+        StackGoalServiceRequest -- the request
+    """
+    req = StackGoalServiceRequest()
+    req.top_block_semantics = [req.YELLOW]
+    req.below_block_semantics = [req.RIGHT_ABSOLUTE]
+
+    return req
+
 def create_simple_test_scene_request_ambigous():
     """create_simple_test_scene_request create an ambigous stack goal for the simple test scene with two yellow blocks side-by-side
     
@@ -63,7 +81,7 @@ def main():
     rospy.loginfo("Service /stack_goal_service is online!")
     stack_goal_service = rospy.ServiceProxy('/stack_goal_service', StackGoalService)
 
-    req = create_simple_test_scene_request_correct()
+    req = create_simple_stacked_test_scene_request_correct()
 
     rospy.loginfo("request:")
     print req
