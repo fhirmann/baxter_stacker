@@ -118,6 +118,15 @@ def handle_put_down(req):
   print("At pre release pose")
   rospy.sleep(1.5)
 
+  #detach block
+  arm_ctrl.detachBlock(block_name=str(arm_ctrl.l_block.id))
+
+  # remove block from planning scene
+  removed = scene_ctrl.removeBlockFromPlanningScene(block_name=str(arm_ctrl.l_block.id))
+  if not removed:
+    print("[kmr19_manipulation_server]: Planning Scene error during put down")
+    return kmr19_put_downResponse(False)
+
   # plan and execute release procedure
   plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position.pose, height_dif=0.0, arm='left')
   if not arm_ctrl.executePlan(plan):
@@ -128,15 +137,6 @@ def handle_put_down(req):
 
   #release block
   arm_ctrl.releaseBlock()
-
-  #detach block
-  arm_ctrl.detachBlock(block_name=str(arm_ctrl.l_block.id))
-
-  # remove block from planning scene
-  removed = scene_ctrl.removeBlockFromPlanningScene(block_name=str(arm_ctrl.l_block.id))
-  if not removed:
-    print("[kmr19_manipulation_server]: Planning Scene error during put down")
-    return kmr19_put_downResponse(False)
 
   # plan and execute post release procedure
   plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position.pose, height_dif=h_dif, arm='left')

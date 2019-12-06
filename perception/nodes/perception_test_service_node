@@ -15,11 +15,11 @@ def get_defined_block1_from_test_scene():
     block.depth = 40./1000.
     block.height = 80./1000.
 
-    block.pose.header.frame_id = '/world'
+    block.pose.header.frame_id = '/table'
 
-    block.pose.pose.position.x = 0.785
-    block.pose.pose.position.y = 0.075
-    block.pose.pose.position.z = -0.2 + block.height/2.
+    block.pose.pose.position.x = 0.24
+    block.pose.pose.position.y = 0.50
+    block.pose.pose.position.z = block.height/2.
 
     # no orientation (=0)
 
@@ -36,11 +36,11 @@ def get_defined_block2_from_test_scene():
     block.depth = 40./1000.
     block.height = 80./1000.
 
-    block.pose.header.frame_id = '/world'
+    block.pose.header.frame_id = '/table'
 
-    block.pose.pose.position.x = 0.785
-    block.pose.pose.position.y = 0.275
-    block.pose.pose.position.z = -0.2 + block.height/2.
+    block.pose.pose.position.x = 0.24
+    block.pose.pose.position.y = 0.70
+    block.pose.pose.position.z = block.height/2.
 
     # no orientation (=0)
 
