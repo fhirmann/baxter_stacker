@@ -47,6 +47,7 @@ class kmr19ArmCtrl:
 
       #set target position
       target_pose = group.get_current_pose(end_effector_link=link).pose
+     
       target_pose.position.x = 0.82
       target_pose.position.y = -0.3
       target_pose.position.z = 0.1
