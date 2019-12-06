@@ -5,10 +5,15 @@ from rosplan_dispatch_msgs.srv import DispatchService
 from std_srvs.srv import Empty
 
 
-rospy.wait_for_service('/rosplan_problem_interface/problem_generation_server')
-rospy.wait_for_service('/rosplan_planner_interface/planning_server')
-rospy.wait_for_service('/rosplan_parsing_interface/parse_plan')
-rospy.wait_for_service('/rosplan_plan_dispatcher/dispatch_plan')
+service_names = {'/rosplan_problem_interface/problem_generation_server', \
+                    '/rosplan_planner_interface/planning_server', \
+                    '/rosplan_parsing_interface/parse_plan', \
+                    '/rosplan_plan_dispatcher/dispatch_plan'}
+
+for service_name in service_names:
+    print 'waiting for service {}'.format(service_name)
+    rospy.wait_for_service(service_name)
+    print 'service {} is now running'.format(service_name)
 
 def generate_problem():
     problem_service = rospy.ServiceProxy(

@@ -11,9 +11,16 @@ from diagnostic_msgs.msg import KeyValue
 
 # get service handle of update
 
-rospy.wait_for_service('/rosplan_knowledge_base/update')
+service_names = {'/rosplan_knowledge_base/update'}
+
+for service_name in service_names:
+    print 'waiting for service {}'.format(service_name)
+    rospy.wait_for_service(service_name)
+    print 'service {} is now running'.format(service_name)
+
 update_service = rospy.ServiceProxy(
     '/rosplan_knowledge_base/update', KnowledgeUpdateService)
+
 
 def add_instance(instance_type, instance_name):
     instance_item = KnowledgeItem()
