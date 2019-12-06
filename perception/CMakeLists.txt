@@ -32,12 +32,13 @@ generate_messages(
   std_msgs
   geometry_msgs)
 
+## Declare a catkin package
 catkin_package(
   CATKIN_DEPENDS message_runtime
 )
  
 ## Declare a catkin package
-catkin_package()
+## catkin_package()
  
 ## Build talker and listener
 include_directories(include ${catkin_INCLUDE_DIRS})
