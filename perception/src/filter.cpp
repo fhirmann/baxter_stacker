@@ -69,9 +69,6 @@ class Filter
     int    outlier_remove_min_neighb_;
 
 
-
-    int first; 
-
   public:
     Filter(ros::NodeHandle nh):
       nh_(nh),
@@ -104,8 +101,6 @@ class Filter
       filtered_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB> >("/filter_output", 1);
 
       //std::cout << "end constructor" << std::endl;
-  
-      first = 1;
     }
 
     /*============================================================================*/
@@ -454,7 +449,6 @@ class Filter
     /*============================================================================*/
     void process_point_cloud( pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud, bool* success, std::vector<perception::Block>* blocks)
     {
-      pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud;
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr trimmed_cloud;
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr table_removed_cloud;
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr output_cloud;
@@ -464,16 +458,6 @@ class Filter
       load_parameters();
 
       // Do data processing here...
-
-      // transform to baxter axis
-      transformed_cloud = transform_to_baxters_axis( input_cloud);
-      std::cout << "\ntransformed_cloud: " << transformed_cloud->points.size() << std::endl;
-      if (transformed_cloud->points.size() == 0){ 
-        *success = false;
-        return;
-      }
-
-	//	pcl::io::savePCDFileASCII("transformt.pcd", *transformed_cloud);
 
       // Limit points corresponding to table
       trimmed_cloud = limit_points_to_table( transformed_cloud);
@@ -517,11 +501,27 @@ class Filter
     void sensor_msg_callback (const sensor_msgs::PointCloud2ConstPtr& input, bool* success, std::vector<perception::Block>* blocks)
     {      
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud;
       
       // convert msgs to point cloud
       pcl::fromROSMsg(*input, *input_cloud);
 
-      process_point_cloud( input_cloud, success, blocks);
+      // transform to baxter axis
+      transformed_cloud = transform_to_baxters_axis( input_cloud);
+      std::cout << "\ntransformed_cloud: " << transformed_cloud->points.size() << std::endl;
+      if (transformed_cloud->points.size() == 0){ 
+        *success = false;
+        return;
+      }
+
+      // save pointcloud to file for debug mode
+	//	pcl::io::savePCDFileASCII("transformt.pcd", *transformed_cloud);
+
+      process_point_cloud( transformed_cloud, success, blocks);
+
+      // Publish the data.
+      input_pc_pub_.publish( *input_cloud);
+      transformed_pc_pub_.publish( *transformed_cloud);
     }
 
 
@@ -566,47 +566,65 @@ int main (int argc, char** argv)
   Filter* filter = new Filter(nh);
   std::cout << "init done" << std::endl;
 
-  // running in debug mode (load pcd file and execute the same point cloud processing on it)
- /* std::string arg1 = argv[1];  
+  // running in debug mode --> load pcd file and execute the same point cloud processing on it as in the service call
+  std::string arg1 = argv[1];  
   if( arg1 == "debug")
   {
-    std::cout << "entering debug mode" << std::endl;
+    std::string file_name = argv[2];
+    std::cout << "entering debug mode with the file " << file_name << std::endl;
 
     // load point cloud from file
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZRGB> ("robot_pcd.pcd", *cloud) == -1)
+    if (pcl::io::loadPCDFile<pcl::PointXYZRGB> (file_name, *cloud) == -1)
     {
-      PCL_ERROR ("Couldn't read file robot_pcd.pcd \n");
+      PCL_ERROR ("Couldn't read file\n");
       return (-1);
     }
     std::cout << "Loaded "
               << cloud->width * cloud->height
               << std::endl;
 
-    cloud->header.frame_id = "camera_link";
+    cloud->header.frame_id = GLOBAL_FRAME_ID;
 
     // view point cloud
     //pcl::visualization::CloudViewer viewer("input cloud");
 	  //viewer.showCloud(cloud);
 
+    bool success = false;
+    std::vector<perception::Block>* blocks = new std::vector<perception::Block>;      
+
     while (ros::ok())
     {
-      filter->process_point_cloud( cloud);
+      blocks.clear();
+      filter->process_point_cloud( cloud, &success, blocks);
+
+      std::cout << "success of the process: " << success << std::endl;
+      std::cout << blocks << std::endl;
       rate.sleep();
     }
-  }*/
+  }
 
-  // if it is not in debug mode - get message --> extract object info --> publish info --> repeat at a 1Hz frequency
-  while (ros::ok())
+
+  // continius camera mode --> gets every 2 seconds a picture from the camera --> processes it the same way as it would like in the service --> outputs clouds for rviz and the blocks on the terminal as text
+  if( arg1 == "cont")
   {
-	bool success = false;
-      std::vector<perception::Block>* blocks = new std::vector<perception::Block>;      
+    bool success = false;
+    std::vector<perception::Block>* blocks = new std::vector<perception::Block>; 
 
+    // if it is not in debug mode - get message --> extract object info --> publish info --> repeat at a 1Hz frequency
+    while (ros::ok())
+    {
+      blocks.clear();    
 
-    sensor_msgs::PointCloud2ConstPtr msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/camera/depth_registered/points", nh, ros::Duration(10));
-    filter->sensor_msg_callback( msg, &success, blocks);
-    rate.sleep();
+      sensor_msgs::PointCloud2ConstPtr msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/camera/depth_registered/points", nh, ros::Duration(10));
+      filter->sensor_msg_callback( msg, &success, blocks);
+
+      std::cout << "success of the process: " << success << std::endl;
+      std::cout << blocks << std::endl;
+
+      rate.sleep();
+    }
   }
 
   // Spin
