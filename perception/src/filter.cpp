@@ -460,7 +460,7 @@ class Filter
       // Do data processing here...
 
       // Limit points corresponding to table
-      trimmed_cloud = limit_points_to_table( transformed_cloud);
+      trimmed_cloud = limit_points_to_table( input_cloud);
       std::cout << "trimmed_cloud: " << trimmed_cloud->points.size() << std::endl;
       if (trimmed_cloud->points.size() == 0){ 
         *success = false;
@@ -487,8 +487,8 @@ class Filter
       object_extraction( color_clusters, success, blocks );
 
       // Publish the data.
-      input_pc_pub_.publish( *input_cloud);
-      transformed_pc_pub_.publish( *transformed_cloud);
+      //input_pc_pub_.publish( *input_cloud);
+      //transformed_pc_pub_.publish( *transformed_cloud);
       trimmed_pc_pub_.publish( *trimmed_cloud);
       table_removed_pc_pub_.publish( *table_removed_cloud);
       filtered_pc_pub_.publish( color_clusters->at(0));
@@ -596,7 +596,7 @@ int main (int argc, char** argv)
 
     while (ros::ok())
     {
-      blocks.clear();
+      blocks->clear();
       filter->process_point_cloud( cloud, &success, blocks);
 
       std::cout << "success of the process: " << success << std::endl;
@@ -615,7 +615,7 @@ int main (int argc, char** argv)
     // if it is not in debug mode - get message --> extract object info --> publish info --> repeat at a 1Hz frequency
     while (ros::ok())
     {
-      blocks.clear();    
+      blocks->clear();    
 
       sensor_msgs::PointCloud2ConstPtr msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/camera/depth_registered/points", nh, ros::Duration(10));
       filter->sensor_msg_callback( msg, &success, blocks);
