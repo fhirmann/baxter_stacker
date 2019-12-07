@@ -57,11 +57,13 @@ def get_block_stacked_on_block1_from_test_scene():
     block.depth = 40./1000.
     block.height = 80./1000.
 
-    block.pose.header.frame_id = '/world'
+    block.pose.header.frame_id = '/table'
 
-    block.pose.pose.position.x = 0.785
-    block.pose.pose.position.y = 0.075
-    block.pose.pose.position.z = get_defined_block1_from_test_scene().pose.pose.position.z + get_defined_block1_from_test_scene().height/2 + block.height/2 # position from block1 + half height of block 1 + half height of new block
+    block1 = get_defined_block1_from_test_scene()
+
+    block.pose.pose.position.x = block1.pose.pose.position.x
+    block.pose.pose.position.y = block1.pose.pose.position.y
+    block.pose.pose.position.z = block1.pose.pose.position.z + block1.height/2 + block.height/2 # position from block1 + half height of block 1 + half height of new block
 
     # no orientation (=0)
 
@@ -78,11 +80,13 @@ def get_block_stacked_on_block3_from_test_scene():
     block.depth = 40./1000.
     block.height = 80./1000.
 
-    block.pose.header.frame_id = '/world'
+    block.pose.header.frame_id = '/table'
 
-    block.pose.pose.position.x = 0.785
-    block.pose.pose.position.y = 0.075
-    block.pose.pose.position.z = get_block_stacked_on_block1_from_test_scene().pose.pose.position.z + get_block_stacked_on_block1_from_test_scene().height/2 + block.height/2 # position from block3 + half height of block 3 + half height of new block
+    block3 = get_block_stacked_on_block1_from_test_scene()
+
+    block.pose.pose.position.x = block3.pose.pose.position.x
+    block.pose.pose.position.y = block3.pose.pose.position.y
+    block.pose.pose.position.z = block3.pose.pose.position.z + block3.height/2 + block.height/2 # position from block3 + half height of block 3 + half height of new block
 
     # no orientation (=0)
 
@@ -114,7 +118,7 @@ def handle_get_scene(req):
 def get_scene_server():
     rospy.init_node('get_scene_server')
     s = rospy.Service('get_scene', GetScene, handle_get_scene)
-    print "Ready to provide service get_scene for test scene with two blocks."
+    print "Ready to provide service get_scene for predefined static test scenes."
     rospy.spin()
 
 if __name__ == "__main__":

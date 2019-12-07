@@ -45,10 +45,10 @@ bool PutDownAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch
     geometry_msgs::PoseStamped end_position_msg;
 
 
-    end_position_msg.header.frame_id = "/world";
+    end_position_msg.header.frame_id = "/table";
     end_position_msg.pose.position.x = location_pose.position.x;
     end_position_msg.pose.position.y = location_pose.position.y;
-    end_position_msg.pose.position.z = s_WORLD_TO_TABLE_DISTANCE_Z + block.height/2.;
+    end_position_msg.pose.position.z = block.height/2.;
 
 
     srv.request.end_position = end_position_msg;

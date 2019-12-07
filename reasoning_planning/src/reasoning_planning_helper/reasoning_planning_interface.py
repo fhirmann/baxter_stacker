@@ -149,7 +149,7 @@ def create_knowledge_from_scene_db():
 
         lower_face_pose_z = pos.z - block.height / 2.
 
-        table_height = -0.2
+        table_height = 0
 
         epsilon = 10./1000
 

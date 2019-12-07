@@ -43,7 +43,7 @@ bool StackAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch::
     geometry_msgs::PoseStamped end_position_msg;
 
 
-    end_position_msg.header.frame_id = "/world";
+    end_position_msg.header.frame_id = "/table";
     end_position_msg.pose.position.x = block_bottom_upper_face_center_pose.position.x;
     end_position_msg.pose.position.y = block_bottom_upper_face_center_pose.position.y;
     end_position_msg.pose.position.z = block_bottom_upper_face_center_pose.position.z + block_top.height/2.;

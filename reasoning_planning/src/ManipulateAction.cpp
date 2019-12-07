@@ -199,7 +199,7 @@ bool ManipulateAction::get_block_top_position(std::string name, Pose& p)
         return false;
     }
 
-    p.position.z = s_WORLD_TO_TABLE_DISTANCE_Z + height_from_top_face_to_table;
+    p.position.z = height_from_top_face_to_table;
 
 
     return true;

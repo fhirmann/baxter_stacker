@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+
+	<!-- ROSPlan including action interfaces -->
+	<include file="$(find reasoning_planning)/launch/baxter_reason_plan_real.launch">
+	</include>
+
+	<!-- service node -->
+	<node name="reasoning_planning_service_node" pkg="reasoning_planning" type="reasoning_planning_service_node" respawn="false" output="screen">
+	</node>
+
+	
+
+</launch>
