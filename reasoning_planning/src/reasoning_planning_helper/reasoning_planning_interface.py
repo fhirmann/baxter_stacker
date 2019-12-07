@@ -36,6 +36,14 @@ from tf.transformations import *
 from perception.srv import GetScene, GetSceneResponse
 from perception.msg import Block
 
+service_names = {'/get_scene', \
+                    '/rosplan_knowledge_base/clear'}
+
+for service_name in service_names:
+    print 'waiting for service {}'.format(service_name)
+    rospy.wait_for_service(service_name)
+    print 'service {} is now running'.format(service_name)
+
 def plan_printer(plan):
     rospy.loginfo("Printing created plan:")
     print plan.data
@@ -88,6 +96,7 @@ def clear_locations_from_scene_db():
         msg_store.delete(str(location_id))
 
 def get_scene_and_store_in_db():
+    
     get_scene_service = rospy.ServiceProxy('/get_scene', GetScene)
     result = get_scene_service()
 
@@ -98,7 +107,6 @@ def get_scene_and_store_in_db():
         clear_blocks_from_scene_db()
         clear_locations_from_scene_db()
 
-        rospy.wait_for_service('/rosplan_knowledge_base/clear')
         clear_service = rospy.ServiceProxy('/rosplan_knowledge_base/clear', Empty)
         result_clear = clear_service()
 

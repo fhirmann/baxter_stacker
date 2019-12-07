@@ -12,6 +12,21 @@
 using namespace geometry_msgs;
 
 
+ManipulateAction::ManipulateAction()
+{
+    std::string service_names[] = {"/rosplan_knowledge_base/state/propositions", 
+                                "kmr19_manipulation_pick_up",
+                                "kmr19_manipulation_put_down"};
+
+    for (auto service_name : service_names)
+    {
+        ROS_INFO("waiting for service %s",service_name.c_str());
+        ros::service::waitForService(service_name);
+        ROS_INFO("service %s is now running",service_name.c_str());
+    } 
+}
+
+
 /**
  * @brief returns the pose of a location
  * 
@@ -61,6 +76,7 @@ bool ManipulateAction::get_where_on_table(std::string block_name, std::string& f
 {
     ros::NodeHandle n;
     ros::ServiceClient client = n.serviceClient<rosplan_knowledge_msgs::GetAttributeService>("/rosplan_knowledge_base/state/propositions");
+    
 
     rosplan_knowledge_msgs::GetAttributeService srv;
 

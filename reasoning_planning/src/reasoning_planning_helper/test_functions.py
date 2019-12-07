@@ -21,6 +21,14 @@ from tf.transformations import *
 from perception.srv import GetScene, GetSceneResponse
 from perception.msg import Block
 
+service_names = {'/rosplan_knowledge_base/clear', \
+                    '/rosplan_knowledge_base/update_array'}
+
+for service_name in service_names:
+    print 'waiting for service {}'.format(service_name)
+    rospy.wait_for_service(service_name)
+    print 'service {} is now running'.format(service_name)
+
 
 def test_create_init_knowledge_base():
 
@@ -28,7 +36,6 @@ def test_create_init_knowledge_base():
 
     # clear current knowledge
 
-    rospy.wait_for_service('/rosplan_knowledge_base/clear')
     clear_service = rospy.ServiceProxy('/rosplan_knowledge_base/clear', Empty)
     result = clear_service()
 
@@ -45,7 +52,6 @@ def test_create_init_knowledge_base():
 
     # get service handle for update_array
 
-    rospy.wait_for_service('/rosplan_knowledge_base/update_array')
     update_array_service = rospy.ServiceProxy(
         '/rosplan_knowledge_base/update_array', KnowledgeUpdateServiceArray)
 
@@ -135,7 +141,6 @@ def test_create_init_knowledge_base_manipulation_simple():
 
     # clear current knowledge
 
-    rospy.wait_for_service('/rosplan_knowledge_base/clear')
     clear_service = rospy.ServiceProxy('/rosplan_knowledge_base/clear', Empty)
     result = clear_service()
 

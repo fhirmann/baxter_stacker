@@ -25,10 +25,10 @@ class kmr19SceneControl:
 
     #add table to MoveIt scene only
     table_pose = PoseStamped()
-    table_pose.header.frame_id = "world"
-    table_pose.pose.position.x = 0.93
-    table_pose.pose.position.y = 0.3
-    table_pose.pose.position.z = -0.55
+    table_pose.header.frame_id = "table"
+    table_pose.pose.position.x = 0.45
+    table_pose.pose.position.y = 0.8
+    table_pose.pose.position.z = -0.35
     table_size = (0.9, 1.6, 0.7)
     # add to MoveIt scene
     self.scene.add_box("table", table_pose, table_size)
@@ -113,6 +113,8 @@ class kmr19SceneControl:
 
     #add blocks from database to MoveIt scene
     for (block, meta) in data:
+      #TODO: transform into world coordinate frame
+
       self.scene_blocks.append(block)
       self.addBlockToPlanningScene(block=block)
 
