@@ -24,7 +24,7 @@
 #include <iostream>
 #include <pcl/io/pcd_io.h>
 
-#include <pcl/visualization/cloud_viewer.h>
+//#include <pcl/visualization/cloud_viewer.h>
 
 #include "perception/GetScene.h"
 #include "perception/Block.h"
@@ -566,17 +566,23 @@ int main (int argc, char** argv)
   Filter* filter = new Filter(nh);
   std::cout << "init done" << std::endl;
 
+  //parse calling arguments
+  std::cout << argc << std::endl;  
+  std::string cmd;  
+  std::string filename;
+  
+  if(argc >=2) cmd = argv[1];
+  if(argc >=3) filename = argv[2];
+
   // running in debug mode --> load pcd file and execute the same point cloud processing on it as in the service call
-  std::string arg1 = argv[1];  
-  if( arg1 == "debug")
+  if( !cmd.empty() && cmd == "debug")
   {
-    std::string file_name = argv[2];
-    std::cout << "entering debug mode with the file " << file_name << std::endl;
+    std::cout << "entering debug mode with the file " << filename << std::endl;
 
     // load point cloud from file
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
 
-    if (pcl::io::loadPCDFile<pcl::PointXYZRGB> (file_name, *cloud) == -1)
+    if (pcl::io::loadPCDFile<pcl::PointXYZRGB> (filename, *cloud) == -1)
     {
       PCL_ERROR ("Couldn't read file\n");
       return (-1);
@@ -600,19 +606,20 @@ int main (int argc, char** argv)
       filter->process_point_cloud( cloud, &success, blocks);
 
       std::cout << "success of the process: " << success << std::endl;
-      std::cout << blocks << std::endl;
+      //std::cout << *blocks << std::endl;
       rate.sleep();
     }
   }
 
 
   // continius camera mode --> gets every 2 seconds a picture from the camera --> processes it the same way as it would like in the service --> outputs clouds for rviz and the blocks on the terminal as text
-  if( arg1 == "cont")
+  if( !cmd.empty() && cmd == "cont")
   {
+    std::cout << "entering continious mode" << std::endl;
     bool success = false;
     std::vector<perception::Block>* blocks = new std::vector<perception::Block>; 
 
-    // if it is not in debug mode - get message --> extract object info --> publish info --> repeat at a 1Hz frequency
+    // if it is in continuos mode - get message --> extract object info --> publish info --> repeat at a 1Hz frequency
     while (ros::ok())
     {
       blocks->clear();    
@@ -621,7 +628,7 @@ int main (int argc, char** argv)
       filter->sensor_msg_callback( msg, &success, blocks);
 
       std::cout << "success of the process: " << success << std::endl;
-      std::cout << blocks << std::endl;
+      //std::cout << *blocks << std::endl;
 
       rate.sleep();
     }
