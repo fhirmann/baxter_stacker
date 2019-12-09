@@ -6,7 +6,7 @@ To make the google speech API work  you will need to possess the secret access k
 You will need to set up the path in the .bashrc by writing :
 `export GOOGLE_APPLICATION_CREDENTIALS=$HOME/catkin_ws/src/kmr19/speech_recognition/gcsapi_user_credentials.json`
 
-## Set up the environment and the API##
+## Set up the environment and the API ##
 
 We base our program on the Google Speech API and some other python libraries. We will store them in a virtual environment
 Follow the steps to set up the virtual environment and installing the API as indicated here : https://cloud.google.com/python/setup
