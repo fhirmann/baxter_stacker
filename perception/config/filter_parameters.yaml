@@ -12,3 +12,7 @@ filter/col_seg_point_col_threshold: 35
 filter/col_seg_region_col_threshold: 1
 filter/outlier_remove_radius: 0.005
 filter/outlier_remove_min_neighb: 10
+filter/color_red: [255, 255, 255]
+filter/color_blue: [255, 255, 255]
+filter/color_green: [255, 255, 255]
+filter/color_yellow: [255, 255, 255]

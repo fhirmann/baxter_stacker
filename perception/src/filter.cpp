@@ -32,6 +32,13 @@
 #define GLOBAL_FRAME_ID "/world"
 #define CAMERA_FRAME_ID "/camera_link"
 
+struct Color
+{
+  int r;
+  int g;
+  int b;
+};
+
 /*============================================================================*/
 /*==== Transform point cloud to baxter base  =================================*/
 /*============================================================================*/
@@ -68,6 +75,7 @@ class Filter
     double outlier_remove_radius_;
     int    outlier_remove_min_neighb_;
 
+    Color red, blue, yellow, green;
 
   public:
     Filter(ros::NodeHandle nh):
@@ -122,6 +130,28 @@ class Filter
       nh_.getParam("/filter/col_seg_region_col_threshold",  col_seg_region_col_threshold_);
       nh_.getParam("/filter/outlier_remove_radius",  outlier_remove_radius_);
       nh_.getParam("/filter/outlier_remove_min_neighb",  outlier_remove_min_neighb_);
+
+      std::vector<int> param_list;
+      nh_.getParam("/filter/color_red", param_list);
+      red.r = param_list[0];
+      red.g = param_list[1];
+      red.b = param_list[2];
+
+      nh_.getParam("/filter/color_blue", param_list);
+      blue.r = param_list[0];
+      blue.g = param_list[1];
+      blue.b = param_list[2];
+
+      nh_.getParam("/filter/color_green", param_list);
+      green.r = param_list[0];
+      green.g = param_list[1];
+      green.b = param_list[2];
+
+      nh_.getParam("/filter/color_yellow", param_list);
+      yellow.r = param_list[0];
+      yellow.g = param_list[1];
+      yellow.b = param_list[2];
+
     }
 
     /*============================================================================*/
