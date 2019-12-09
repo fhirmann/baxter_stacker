@@ -66,12 +66,12 @@ def main():
     req = create_simple_test_scene_request_correct()
 
     rospy.loginfo("request:")
-    print req
+    print (req)
 
     response = stack_goal_service(req)
 
     rospy.loginfo("response:")
-    print response
+    print (response)
 
 if __name__ == "__main__":
     main()
