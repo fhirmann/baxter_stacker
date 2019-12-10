@@ -76,7 +76,6 @@ def getRequestList(tree):
 
 #Sends the finalized request to the service
 def sendToService(req):
-    rospy.init_node('reasoning_planning_service_client_test_node')
 
     rospy.loginfo("Waiting for service /stack_goal_service...")
     rospy.wait_for_service('/stack_goal_service')
