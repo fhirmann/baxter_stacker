@@ -5,6 +5,7 @@ import moveit_commander
 import baxter_interface
 from baxter_interface import CHECK_VERSION
 from perception.msg import Block
+import tf
 
 class kmr19ArmCtrl:
   def __init__(self):
@@ -25,7 +26,7 @@ class kmr19ArmCtrl:
     self.l_block = Block()
     self.r_block = Block()
 
-  def moveToInitlPosition(self, arm='left'):
+  def moveToInitPosition(self, arm='left'):
     if (arm == 'left'):
       group = self.group
       link = 'left_gripper'
@@ -142,6 +143,12 @@ class kmr19ArmCtrl:
        :return: motion plan for pick up procedure, plan maybe not valid --> check somewhere else
        '''
 
+    #transform pose to right coordinate frame
+    listener = tf.TransformListener()
+    listener.waitForTransform("world", "table", rospy.Time(), rospy.Duration(4.0))
+    listener.waitForTransform("world", "table", rospy.Time.now(), rospy.Duration(4.0))
+    tmp_pose = listener.transformPose("world", goal_pose)
+
     group = self.group
     link = 'left_gripper'
     if (arm == 'right'):
@@ -161,13 +168,13 @@ class kmr19ArmCtrl:
       # cartesian path waypoints
       waypoints = []
 
-      target_pose.position.x = goal_pose.position.x
-      target_pose.position.y = goal_pose.position.y
-      target_pose.position.z = goal_pose.position.z + height_dif/2
+      target_pose.position.x = tmp_pose.pose.position.x
+      target_pose.position.y = tmp_pose.pose.position.y
+      target_pose.position.z = tmp_pose.pose.position.z + height_dif/2
 
       # add target position
       waypoints.append(copy.deepcopy(target_pose))
-      target_pose.position.z = goal_pose.position.z + height_dif/2
+      target_pose.position.z = tmp_pose.pose.position.z + height_dif/2
       waypoints.append(copy.deepcopy(target_pose))
 
       # compute path
@@ -175,9 +182,9 @@ class kmr19ArmCtrl:
                                                       0.01,  # eef_step
                                                       0.0)  # jump_threshold
     else:
-      target_pose.position.x = goal_pose.position.x
-      target_pose.position.y = goal_pose.position.y
-      target_pose.position.z = goal_pose.position.z + height_dif
+      target_pose.position.x = tmp_pose.pose.position.x
+      target_pose.position.y = tmp_pose.pose.position.y
+      target_pose.position.z = tmp_pose.pose.position.z + height_dif
 
       # set target pose in MoveIt Commander
       group.set_pose_target(target_pose, link)
