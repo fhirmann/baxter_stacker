@@ -33,6 +33,8 @@ from geometry_msgs.msg import Pose, Point, Quaternion
 
 from tf.transformations import *
 
+import tf
+
 from perception.srv import GetScene, GetSceneResponse
 from perception.msg import Block
 
@@ -115,7 +117,26 @@ def get_scene_and_store_in_db():
 
         msg_store = MessageStoreProxy()
 
+        listener = tf.TransformListener()
+        
+
         for block in result.blocks:
+
+            listener.waitForTransform(block.pose.header.frame_id, "table", rospy.Time(), rospy.Duration(4.0) )
+
+            tmp_pose = listener.transformPose(block.pose.header.frame_id, block.pose)
+
+            print 'old pose'
+            print block.pose
+
+            block.pose = tmp_pose
+
+            print 'new pose'
+            print block.pose
+
+
+
+
 
             msg_store.insert_named('block{}'.format(block.id), block)
     
