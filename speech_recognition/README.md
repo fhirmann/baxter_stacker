@@ -8,8 +8,13 @@ You will need to set up the path in the .bashrc by writing :
 
 ## Set up the Google Speech environment ##
 
-We base our program on the Google Speech API and some other python libraries. To make it easier and not naving to install it everytime, everything that's needed is contained in a python environment (folder env). To make the package work, we have to work in this virtual Python environment :
-Go to the speech_recognition folder and execute the command : `source env/bin/activate`
+We base our program on the Google Speech API and some other python libraries. We will store them in a virtual environment
+Follow the steps to set up the virtual environment and installing the API as indicated here : https://cloud.google.com/python/setup
+
+You will probably have to install more libraries to make it work, especially portaudio, pyaudio, pyyaml, rospkg. Install them in the environment.
+
+Reminder, the programs will only work in this virtual environment. So when using the nodes, be sure to have executed the command :
+`source env/bin/activate`
 To leave the environment, just do `deactivate`
 
 Nodes should be already set as executables. If not, go in the nodes folder and do :
