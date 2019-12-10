@@ -100,12 +100,12 @@ def block_list_simple_scene():
 def block_list_stacked_scene2():
     # yellow_block is on loc1, blue_block is stacked on yellow_block, red block is again stacked on yellow block
     # other yellow block is on loc2, 
-    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene(), get_block_stacked_on_block1_from_test_scene(), get_block_stacked_on_block3_from_test_scene()]
+    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene()]
 
 def block_list_stacked_scene():
     # yellow_block is on loc1, blue_block is stacked on yellow_block
     # other yellow block is on loc2, third 
-    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene(), get_block_stacked_on_block1_from_test_scene()]
+    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene()]
     
 
 def handle_get_scene(req):

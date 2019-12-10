@@ -45,7 +45,7 @@ def handle_pick_up(req):
     print("[kmr19_manipulation_server]: Block to pick up is not in scene")
     return kmr19_pick_upResponse(False)
 
-  h_dif = block.height * 1.5
+  h_dif = block.height
 
   #plan and execute pre grasp procedure
   plan = arm_ctrl.planBlockPickup(block_pose=block.pose, height_dif=h_dif, arm='left')
@@ -102,20 +102,20 @@ def handle_put_down(req):
   global robot_ctrl, scene_ctrl, arm_ctrl
 
   print("[kmr19_manipulation_server]: Got request to put down block at", req.end_position.pose.position.x, req.end_position.pose.position.y, req.end_position.pose.position.z)
+  print("in frame ", req.end_position.header.frame_id)
 
   #check if robot already holds block
   if not arm_ctrl.l_holds_block:
     print("[kmr19_manipulation_server]: Robot has to pick up a block first")
     return kmr19_put_downResponse(False)
 
-  h_dif = arm_ctrl.l_block.height * 1.5
+  h_dif = arm_ctrl.l_block.height
 
   #plan and execute pre release procedure
-  plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position.pose, height_dif=h_dif, arm='left')
+  plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position, height_dif=h_dif, arm='left')
   if not arm_ctrl.executePlan(plan):
     print("[kmr19_manipulation_server]: Robot failed during pre release pose")
     return kmr19_put_downResponse(False)
-  print("At pre release pose")
   rospy.sleep(1.5)
 
   #detach block
@@ -128,18 +128,17 @@ def handle_put_down(req):
     return kmr19_put_downResponse(False)
 
   # plan and execute release procedure
-  plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position.pose, height_dif=0.0, arm='left')
+  plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position, height_dif=0.0, arm='left')
   if not arm_ctrl.executePlan(plan):
     print("[kmr19_manipulation_server]: Robot failed during release pose")
     return kmr19_put_downResponse(False)
   rospy.sleep(1)
-  print("At release pose")
 
   #release block
   arm_ctrl.releaseBlock()
 
   # plan and execute post release procedure
-  plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position.pose, height_dif=h_dif, arm='left')
+  plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position, height_dif=h_dif, arm='left')
   if not arm_ctrl.executePlan(plan):
     print("[kmr19_manipulation_server]: Robot failed during post release pose")
     return kmr19_put_downResponse(False)
@@ -157,7 +156,7 @@ def handle_put_down(req):
   scene_ctrl.updateBlockInScene(arm_ctrl.l_block)
 
   #move back to init position
-  arm_ctrl.moveToInitlPosition(arm='left')
+  arm_ctrl.moveToInitPosition(arm='left')
 
   arm_ctrl.l_holds_block = False
   print("[kmr19_manipulation_server]: Block Put-Down successful")
@@ -181,13 +180,16 @@ def kmr19_manipulation_server():
   #enable robot
   robot_ctrl.enableRobot()
 
+  #set head position
+  robot_ctrl.initHead()
+
   #add fixed scene object
   scene_ctrl.addFixedSceneObjects()
 
   #init position and gripper init
-  left_arm_init = arm_ctrl.moveToInitlPosition(arm='left')
+  left_arm_init = arm_ctrl.moveToInitPosition(arm='left')
   left_gripper_init = arm_ctrl.initGripper(arm='left', gripper_open=True, block=True)
-  right_arm_init = arm_ctrl.moveToInitlPosition(arm='right')
+  right_arm_init = arm_ctrl.moveToInitPosition(arm='right')
   right_gripper_init = arm_ctrl.initGripper(arm='right', gripper_open=True, block=True)
 
   print("[kmr19_manipulation_server]: Left arm init successful? ", left_arm_init)

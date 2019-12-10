@@ -116,41 +116,65 @@ class Filter
     /*============================================================================*/
     void load_parameters()
     {
-      nh_.getParam("/filter/table_x_low",  table_x_low_);
-      nh_.getParam("/filter/table_x_high", table_x_high_);
-      nh_.getParam("/filter/table_y_low",  table_y_low_);
-      nh_.getParam("/filter/table_y_high", table_y_high_);
-      nh_.getParam("/filter/table_z_low",  table_z_low_);
-      nh_.getParam("/filter/table_z_high", table_z_high_);
-      nh_.getParam("/filter/plane_seg_threshold", plane_seg_threshold_);
-      nh_.getParam("/filter/plane_seg_max_iterations",  plane_seg_max_iterations_);
-      nh_.getParam("/filter/col_seg_min_cluster_size",  col_seg_min_cluster_size_);
-      nh_.getParam("/filter/col_seg_dist_threshold",  col_seg_dist_threshold_);
-      nh_.getParam("/filter/col_seg_point_col_threshold",  col_seg_point_col_threshold_);
-      nh_.getParam("/filter/col_seg_region_col_threshold",  col_seg_region_col_threshold_);
-      nh_.getParam("/filter/outlier_remove_radius",  outlier_remove_radius_);
-      nh_.getParam("/filter/outlier_remove_min_neighb",  outlier_remove_min_neighb_);
+      //std::cout << " load_param  " << nh_.getParam("/filter/table_x_low",  table_x_low_) << std::endl;
+
+      bool ok = true;
+      if(!nh_.getParam("/filter/table_x_low",  table_x_low_))   ok = false;
+      if(!nh_.getParam("/filter/table_x_high", table_x_high_))  ok = false;
+      if(!nh_.getParam("/filter/table_y_low",  table_y_low_))   ok = false;
+      if(!nh_.getParam("/filter/table_y_high", table_y_high_))  ok = false;
+      if(!nh_.getParam("/filter/table_z_low",  table_z_low_))   ok = false;
+      if(!nh_.getParam("/filter/table_z_high", table_z_high_))  ok = false;
+      if(!nh_.getParam("/filter/plane_seg_threshold", plane_seg_threshold_))  ok = false;
+      if(!nh_.getParam("/filter/plane_seg_max_iterations",  plane_seg_max_iterations_)) ok = false;
+      if(!nh_.getParam("/filter/col_seg_min_cluster_size",  col_seg_min_cluster_size_)) ok = false;
+      if(!nh_.getParam("/filter/col_seg_dist_threshold",  col_seg_dist_threshold_)) ok = false;
+      if(!nh_.getParam("/filter/col_seg_point_col_threshold",  col_seg_point_col_threshold_)) ok = false;
+      if(!nh_.getParam("/filter/col_seg_region_col_threshold",  col_seg_region_col_threshold_)) ok = false;
+      if(!nh_.getParam("/filter/outlier_remove_radius",  outlier_remove_radius_)) ok = false;
+      if(!nh_.getParam("/filter/outlier_remove_min_neighb",  outlier_remove_min_neighb_)) ok = false;
 
       std::vector<int> param_list;
-      nh_.getParam("/filter/color_red", param_list);
-      red.r = param_list[0];
-      red.g = param_list[1];
-      red.b = param_list[2];
+      if( nh_.getParam("/filter/color_red", param_list))
+      {  
+        red.r = param_list[0];
+        red.g = param_list[1];
+        red.b = param_list[2];
+      }
+      else
+        ok = false; 
 
-      nh_.getParam("/filter/color_blue", param_list);
-      blue.r = param_list[0];
-      blue.g = param_list[1];
-      blue.b = param_list[2];
+      if( nh_.getParam("/filter/color_blue", param_list)) 
+      {
+        blue.r = param_list[0];
+        blue.g = param_list[1];
+        blue.b = param_list[2];
+      }
+      else
+        ok = false;
 
-      nh_.getParam("/filter/color_green", param_list);
-      green.r = param_list[0];
-      green.g = param_list[1];
-      green.b = param_list[2];
+      if( nh_.getParam("/filter/color_green", param_list))
+      {
+        green.r = param_list[0];
+        green.g = param_list[1];
+        green.b = param_list[2];
+      }
+      else
+        ok = false;
 
-      nh_.getParam("/filter/color_yellow", param_list);
-      yellow.r = param_list[0];
-      yellow.g = param_list[1];
-      yellow.b = param_list[2];
+      if( nh_.getParam("/filter/color_yellow", param_list))
+      {
+        yellow.r = param_list[0];
+        yellow.g = param_list[1];
+        yellow.b = param_list[2];
+      }
+      else
+        ok = false;
+
+      //std::cout << ok << "  " << nh_.getParam("/filter/table_x_low",  table_x_low_) << std::endl;
+
+      if( !ok)
+        std::cout << " ERROR: was not able to load parameters!" << std::endl;
 
     }
 
@@ -410,6 +434,50 @@ class Filter
     }
 
     /*============================================================================*/
+    int color_extraction(double r_mean, double g_mean, double b_mean)
+    {
+      double red_dist = std::sqrt(  std::pow( r_mean - red.r, 2) +
+                                    std::pow( g_mean - red.g, 2) +
+				                            std::pow( b_mean - red.b, 2) );
+      double min_dist = red_dist;
+      int color = perception::Block::RED;
+      
+
+      double blue_dist = std::sqrt( std::pow( r_mean - blue.r, 2) +
+                                    std::pow( g_mean - blue.g, 2) +
+                                    std::pow( b_mean - blue.b, 2) );
+
+      if( blue_dist < min_dist)
+      {
+        min_dist = blue_dist;
+        color = perception::Block::BLUE;
+      }
+
+      double green_dist = std::sqrt(  std::pow( r_mean - green.r, 2) +
+                                      std::pow( g_mean - green.g, 2) +
+                                      std::pow( b_mean - green.b, 2) );
+
+      if( green_dist < min_dist)
+      {
+        min_dist = green_dist;
+        color = perception::Block::GREEN;
+      }
+
+      double yellow_dist = std::sqrt( std::pow( r_mean - yellow.r, 2) +
+                                      std::pow( g_mean - yellow.g, 2) +
+                                      std::pow( b_mean - yellow.b, 2) );
+
+      if( yellow_dist < min_dist)
+      {
+        min_dist = yellow_dist;
+        color = perception::Block::YELLOW;
+      }
+
+      std::cout << "red_dist " << red_dist << " blue_dist " << blue_dist << " green_dist " << green_dist << " yellow_dist " << yellow_dist << std::endl; 
+
+      return color;
+    }
+
 
     void object_extraction( std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters, bool* success, std::vector<perception::Block>* blocks)
     {
@@ -466,7 +534,7 @@ class Filter
         block.pose = poseStamped;
 
         // extract color
-        block.color = perception::Block::YELLOW;
+        block.color = color_extraction( r_mean, g_mean, b_mean);
 
         blocks->push_back(block);
         *success = true;
@@ -545,7 +613,7 @@ class Filter
       }
 
       // save pointcloud to file for debug mode
-	//	pcl::io::savePCDFileASCII("transformt.pcd", *transformed_cloud);
+	    //pcl::io::savePCDFileASCII("transformt.pcd", *transformed_cloud);
 
       process_point_cloud( transformed_cloud, success, blocks);
 
@@ -636,7 +704,9 @@ int main (int argc, char** argv)
       filter->process_point_cloud( cloud, &success, blocks);
 
       std::cout << "success of the process: " << success << std::endl;
-      //std::cout << *blocks << std::endl;
+      for(int i=0; i < blocks->size(); i++)
+        std::cout << "block nr.: " << i << "  " << blocks->at(i) << std::endl; 
+
       rate.sleep();
     }
   }
@@ -658,7 +728,8 @@ int main (int argc, char** argv)
       filter->sensor_msg_callback( msg, &success, blocks);
 
       std::cout << "success of the process: " << success << std::endl;
-      //std::cout << *blocks << std::endl;
+      for(int i=0; i < blocks->size(); i++)
+        std::cout << "block nr.: " << i << "  " << blocks->at(i) << std::endl; 
 
       rate.sleep();
     }

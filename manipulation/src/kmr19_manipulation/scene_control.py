@@ -7,6 +7,8 @@ from geometry_msgs.msg import PoseStamped, Pose
 from mongodb_store.message_store import MessageStoreProxy
 from perception.msg import Block
 
+import tf
+
 class kmr19SceneControl:
   def __init__(self):
     self.scene = moveit_commander.PlanningSceneInterface()
@@ -105,6 +107,8 @@ class kmr19SceneControl:
 
   def loadSceneDatabase(self):
     msg_store = MessageStoreProxy()
+    listener = tf.TransformListener()
+    listener.waitForTransform("world", "table", rospy.Time(), rospy.Duration(4.0))
 
     #empty scene objects
     del self.scene_blocks[:]
@@ -113,7 +117,10 @@ class kmr19SceneControl:
 
     #add blocks from database to MoveIt scene
     for (block, meta) in data:
-      #TODO: transform into world coordinate frame
+      now = rospy.Time.now()
+      listener.waitForTransform("world", "table", now, rospy.Duration(4.0))
+      tmp_pose = listener.transformPose("world", block.pose)
+      block.pose = tmp_pose
 
       self.scene_blocks.append(block)
       self.addBlockToPlanningScene(block=block)

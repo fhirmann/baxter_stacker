@@ -15,19 +15,20 @@ Installation:
 Stating the Perception modul
 ============================
 
+source src/kmr19/baxter_real_setup.sh 
+
 1.) start the camera driver with:
 roslaunch openni2_launch openni2.launch depth_registration:="true"
 
 check if in the output something with loaded the dept...yaml and rgb...yaml calibration file is displayed
 
 2.) start the transform listener with:
-rosrun tf static_transform_publisher 0.2 0.0 0.8 0.0 0.85 0.0 /world /camera_link 30
+rosrun perception tf_camera_link_broadcaster.py
 
 3.) load the rosparameters for the filter
 rosparam load src/kmr19/perception/config/filter_parameters.yaml
 
 4.) run the filter
-source /home/baxter/catkin_ws/devel/setup.bash
 rosrun perception filter
 
 5.) (optional) run rviz to visualize the different clouds - add a PointCloud2 and select the desired topic

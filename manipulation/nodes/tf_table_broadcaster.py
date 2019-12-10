@@ -7,7 +7,7 @@ if __name__ == '__main__':
     br = tf.TransformBroadcaster()
     rate = rospy.Rate(10.0)
     while not rospy.is_shutdown():
-        br.sendTransform((0.497, -0.502, -0.21),
+        br.sendTransform((0.485, -0.507, -0.21),
                          (0.0, 0.0, 0.0, 1.0),
                          rospy.Time.now(),
                          "table",

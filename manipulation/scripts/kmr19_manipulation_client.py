@@ -24,7 +24,7 @@ def putdown(pose):
     print "Service call failed: %s"%e
 
 if __name__ == "__main__":
-  success = pickup(2)
+  success = pickup(1)
   print "kmr pick up successful? ", success
 
   block_pose = PoseStamped()
