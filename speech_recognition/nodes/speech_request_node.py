@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from __future__ import division
 
@@ -141,6 +141,8 @@ def listen_print_loop(responses):
             #print(transcript + overwrite_chars)
             # Exit recognition if any of the transcribed phrases could be
             # one of our keywords.
+            print(transcript + overwrite_chars)
+
             if re.search(r'\b(exit|quit)\b', transcript, re.I):
                 print('Exiting..')
                 break

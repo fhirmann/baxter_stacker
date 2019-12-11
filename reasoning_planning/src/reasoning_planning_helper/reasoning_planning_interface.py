@@ -122,21 +122,11 @@ def get_scene_and_store_in_db():
 
         for block in result.blocks:
 
-            listener.waitForTransform(block.pose.header.frame_id, "table", rospy.Time(), rospy.Duration(4.0) )
+            listener.waitForTransform("table", block.pose.header.frame_id, rospy.Time(), rospy.Duration(4.0) )
 
-            tmp_pose = listener.transformPose(block.pose.header.frame_id, block.pose)
-
-            print 'old pose'
-            print block.pose
+            tmp_pose = listener.transformPose("table", block.pose)
 
             block.pose = tmp_pose
-
-            print 'new pose'
-            print block.pose
-
-
-
-
 
             msg_store.insert_named('block{}'.format(block.id), block)
     
@@ -172,7 +162,7 @@ def create_knowledge_from_scene_db():
 
         table_height = 0
 
-        epsilon = 10./1000
+        epsilon = 100./1000
 
         if is_epsilon_close(lower_face_pose_z, table_height, epsilon):
             # add new location position

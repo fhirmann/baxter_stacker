@@ -31,8 +31,8 @@ def create_simple_test_scene_request_correct():
         StackGoalServiceRequest -- the request
     """
     req = StackGoalServiceRequest()
-    req.top_block_semantics = [req.LEFT_RELATIVE]
-    req.below_block_semantics = [req.RIGHT_ABSOLUTE]
+    req.top_block_semantics = [req.BLUE]
+    req.below_block_semantics = [req.RED]
 
     return req
 
@@ -81,7 +81,7 @@ def main():
     rospy.loginfo("Service /stack_goal_service is online!")
     stack_goal_service = rospy.ServiceProxy('/stack_goal_service', StackGoalService)
 
-    req = create_simple_stacked_test_scene_request_correct()
+    req = create_simple_test_scene_request_correct()
 
     rospy.loginfo("request:")
     print req

@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<launch>
+  
+  <!-- table frame to world frame transformer -->
+  <node name="tf_table_broadcaster" pkg="manipulation" type="tf_table_broadcaster.py" respawn="false" />
+
+  <!-- run joint trajectory action server -->
+  <node name="joint_trajectory_action_server" pkg="baxter_interface" type="joint_trajectory_action_server.py" respawn="false" />
+
+  <!-- run gripper_action_serverr -->
+  <node name="gripper_action_server" pkg="baxter_interface" type="gripper_action_server.py" respawn="false" />
+
+  <!-- run head_action_server -->
+  <node name="head_action_server" pkg="baxter_interface" type="head_action_server.py" respawn="false" />
+
+  <!-- run/load baxter gripper launch file -->
+  <include file="$(find baxter_moveit_config)/launch/baxter_grippers.launch">
+  </include>
+
+  <!-- run manipulation server -->
+  <node name="kmr19_manipulation_node" pkg="manipulation" type="kmr19_manipulation_node.py" respawn="false" />
+ 
+</launch>

@@ -2,6 +2,9 @@
 <launch>
   
   <!-- camera driver - launch file?-->
+  <include file="$(find openni2_launch)/launch/openni2.launch">
+    <arg name="depth_registration" value="true" />
+  </include>
 
   <!-- camera link to world transformer -->
   <node name="tf_camera_link_broadcaster" pkg="perception" type="tf_camera_link_broadcaster.py" respawn="false" />
@@ -10,9 +13,6 @@
   <rosparam file="$(find perception)/config/filter_parameters.yaml" command="load" />
 
   <!-- run filter -->
-  <node name="perception_filter" pkg="perception" type="filter" respawn="false" output="screen">
-
-  <!-- run rviz -->
-  <node name="rivz" pkg="rviz" type="rviz" respawn="false" output="screen">
+  <node name="perception_filter" pkg="perception" type="filter" respawn="false" output="screen"/>
  
 </launch>

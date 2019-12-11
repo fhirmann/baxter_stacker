@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import rospy
 
 #from reasoning_planning_helper.reasoning_planning_interface import *
@@ -82,8 +82,6 @@ def sendToService(req):
 
     rospy.loginfo("Service /stack_goal_service is online!")
     stack_goal_service = rospy.ServiceProxy('/stack_goal_service', StackGoalService)
-
-    req = create_simple_test_scene_request_correct()
 
     rospy.loginfo("request:")
     print (req)
