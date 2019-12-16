@@ -93,13 +93,14 @@ class Filter
       outlier_remove_min_neighb_(0)
     {
 
-      //std::cout << "start constructor" << std::endl;
+      //ROS_INFO_STREAM( "FILTER: start constructor" );
 
       // Create a ROS subscriber for the input point cloud
       //point_cloud_sub_ = nh_.subscribe ("/camera/depth_registered/points", 1, &Filter::sensor_msg_callback, this);
       
       // advertise new ros service GetScene
       service_ = nh_.advertiseService("get_scene", &Filter::get_scene_callback, this);
+      ROS_INFO( "FILTER: Service get_scene activated!");
       
       // Create a ROS publisher for the output point cloud
       input_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB> >("/filter_input", 1);
@@ -108,7 +109,7 @@ class Filter
       table_removed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB> >("/filter_table_removed", 1);
       filtered_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB> >("/filter_output", 1);
 
-      //std::cout << "end constructor" << std::endl;
+      //ROS_INFO_STREAM( "FILTER: end constructor" );
     }
 
     /*============================================================================*/
@@ -116,7 +117,7 @@ class Filter
     /*============================================================================*/
     void load_parameters()
     {
-      //std::cout << " load_param  " << nh_.getParam("/filter/table_x_low",  table_x_low_) << std::endl;
+      //ROS_INFO_STREAM( "FILTER:  load_param  " << nh_.getParam("/filter/table_x_low",  table_x_low_) );
 
       bool ok = true;
       if(!nh_.getParam("/filter/table_x_low",  table_x_low_))   ok = false;
@@ -171,10 +172,10 @@ class Filter
       else
         ok = false;
 
-      //std::cout << ok << "  " << nh_.getParam("/filter/table_x_low",  table_x_low_) << std::endl;
+      //std::cout << ok << "  " << nh_.getParam("/filter/table_x_low",  table_x_low_) );
 
       if( !ok)
-        std::cout << " ERROR: was not able to load parameters!" << std::endl;
+        ROS_INFO_STREAM( "FILTER:  ERROR: was not able to load parameters!" );
 
     }
 
@@ -262,7 +263,7 @@ class Filter
         seg.segment(*inlierInds, *coefficients); 
 
         if (inlierInds->indices.size() == 0){
-		        std::cout << "Could not find a plane in the scene." << std::endl;
+		        ROS_INFO_STREAM( "FILTER: Could not find a plane in the scene." );
         }
 	      else{
             // Extract the planar inliers from the input cloud
@@ -341,7 +342,7 @@ class Filter
         // ...and add it to the return vector
         cloud_clusters->push_back( cluster_filtered);
 
-		   // std::cout << "Cluster " << currentClusterNum << " has " << cluster_filtered->points.size() << " points" << std::endl;
+		   // ROS_INFO_STREAM( "FILTER: Cluster " << currentClusterNum << " has " << cluster_filtered->points.size() << " points" );
 		    currentClusterNum++;
 	    }
 
@@ -419,18 +420,18 @@ class Filter
         *g_mean = *g_mean / N;
         *b_mean = *b_mean / N;
         
-        std::cout << " x min: " << *x_min << " mean: " << *x_mean << 
-                       " max: " << *x_max << std::endl;
-        std::cout << " y min: " << *y_min << " mean: " << *y_mean << 
-                       " max: " << *y_max << std::endl;
-        std::cout << " z min: " << *z_min << " mean: " << *z_mean << 
-                       " max: " << *z_max << std::endl;
-        std::cout << " r min: " << *r_min << " mean: " << *r_mean << 
-                       " max: " << *r_max << std::endl;
-        std::cout << " g min: " << *g_min << " mean: " << *g_mean << 
-                       " max: " << *g_max << std::endl;
-        std::cout << " b min: " << *b_min << " mean: " << *b_mean << 
-                       " max: " << *b_max << std::endl;
+        ROS_INFO_STREAM( "FILTER:  x min: " << *x_min << " mean: " << *x_mean <<
+                       " max: " << *x_max );
+        ROS_INFO_STREAM( "FILTER:  y min: " << *y_min << " mean: " << *y_mean <<
+                       " max: " << *y_max );
+        ROS_INFO_STREAM( "FILTER:  z min: " << *z_min << " mean: " << *z_mean <<
+                       " max: " << *z_max );
+        ROS_INFO_STREAM( "FILTER:  r min: " << *r_min << " mean: " << *r_mean <<
+                       " max: " << *r_max );
+        ROS_INFO_STREAM( "FILTER:  g min: " << *g_min << " mean: " << *g_mean <<
+                       " max: " << *g_max );
+        ROS_INFO_STREAM( "FILTER:  b min: " << *b_min << " mean: " << *b_mean <<
+                       " max: " << *b_max );
     }
 
     /*============================================================================*/
@@ -473,7 +474,7 @@ class Filter
         color = perception::Block::YELLOW;
       }
 
-      std::cout << "red_dist " << red_dist << " blue_dist " << blue_dist << " green_dist " << green_dist << " yellow_dist " << yellow_dist << std::endl; 
+      ROS_INFO_STREAM( "FILTER: red_dist " << red_dist << " blue_dist " << blue_dist << " green_dist " << green_dist << " yellow_dist " << yellow_dist );
 
       return color;
     }
@@ -481,7 +482,7 @@ class Filter
 
     void object_extraction( std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters, bool* success, std::vector<perception::Block>* blocks)
     {
-      std::cout << "object_extraction " << color_clusters->size() << std::endl;
+      ROS_INFO_STREAM( "FILTER: object_extraction " << color_clusters->size() );
 
       *success = false;      
 
@@ -491,7 +492,7 @@ class Filter
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = color_clusters->at(i);
         perception::Block block;
 
-        std::cout << "cloud size " << cloud->points.size() << std::endl; 
+        ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() );
 
         // get statistic values
         double x_min, x_max, x_mean;
@@ -559,7 +560,7 @@ class Filter
 
       // Limit points corresponding to table
       trimmed_cloud = limit_points_to_table( input_cloud);
-      std::cout << "trimmed_cloud: " << trimmed_cloud->points.size() << std::endl;
+      ROS_INFO_STREAM( "FILTER: trimmed_cloud: " << trimmed_cloud->points.size() );
       if (trimmed_cloud->points.size() == 0){ 
         *success = false;
         return;
@@ -567,7 +568,7 @@ class Filter
 
       // remove table surface (planar model) from the cloud
       table_removed_cloud = plane_segmentation( trimmed_cloud);
-      std::cout << "table_removed_cloud: " << table_removed_cloud->points.size() << std::endl;
+      ROS_INFO_STREAM( "FILTER: table_removed_cloud: " << table_removed_cloud->points.size() );
       if (table_removed_cloud->points.size() == 0){
         *success = false; 
         return;
@@ -575,7 +576,7 @@ class Filter
 
       // segmentation by color
       color_clusters = color_segmentation( table_removed_cloud);
-      std::cout << "color_segementation nr of clusters: " << color_clusters->size() << std::endl;
+      ROS_INFO_STREAM( "FILTER: color_segementation nr of clusters: " << color_clusters->size() );
       if (color_clusters->size() == 0){ 
         *success = false;
         return;
@@ -585,8 +586,7 @@ class Filter
       object_extraction( color_clusters, success, blocks );
 
       // Publish the data.
-      //input_pc_pub_.publish( *input_cloud);
-      //transformed_pc_pub_.publish( *transformed_cloud);
+      transformed_pc_pub_.publish( *input_cloud);
       trimmed_pc_pub_.publish( *trimmed_cloud);
       table_removed_pc_pub_.publish( *table_removed_cloud);
       filtered_pc_pub_.publish( color_clusters->at(0));
@@ -606,7 +606,7 @@ class Filter
 
       // transform to baxter axis
       transformed_cloud = transform_to_baxters_axis( input_cloud);
-      std::cout << "\ntransformed_cloud: " << transformed_cloud->points.size() << std::endl;
+      ROS_INFO_STREAM( "FILTER: \ntransformed_cloud: " << transformed_cloud->points.size() );
       if (transformed_cloud->points.size() == 0){ 
         *success = false;
         return;
@@ -619,7 +619,6 @@ class Filter
 
       // Publish the data.
       input_pc_pub_.publish( *input_cloud);
-      transformed_pc_pub_.publish( *transformed_cloud);
     }
 
 
@@ -627,7 +626,7 @@ class Filter
     bool get_scene_callback( perception::GetScene::Request  &req,
                              perception::GetScene::Response &res)
     {
-      std::cout << "requested get scene service" << std::endl;
+      ROS_INFO_STREAM( "FILTER: requested get scene service" );
     
       //define output variables
       bool success = false;
@@ -643,7 +642,7 @@ class Filter
       res.success = success;
       res.blocks = *blocks;
       
-      std::cout << "sending back response " << std::endl;
+      ROS_INFO_STREAM( "FILTER: sending back response " );
       return true;
     }
 };
@@ -662,10 +661,10 @@ int main (int argc, char** argv)
   ros::Rate rate(0.5);
   
   Filter* filter = new Filter(nh);
-  std::cout << "init done" << std::endl;
+  ROS_INFO("FILTER: init done");
 
   //parse calling arguments
-  std::cout << argc << std::endl;  
+  ROS_INFO_STREAM( "FILTER: Number of arguments " << argc);
   std::string cmd;  
   std::string filename;
   
@@ -675,7 +674,7 @@ int main (int argc, char** argv)
   // running in debug mode --> load pcd file and execute the same point cloud processing on it as in the service call
   if( !cmd.empty() && cmd == "debug")
   {
-    std::cout << "entering debug mode with the file " << filename << std::endl;
+    ROS_INFO("FILTER: entering debug mode with the file %s", filename.c_str());
 
     // load point cloud from file
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
@@ -685,9 +684,7 @@ int main (int argc, char** argv)
       PCL_ERROR ("Couldn't read file\n");
       return (-1);
     }
-    std::cout << "Loaded "
-              << cloud->width * cloud->height
-              << std::endl;
+    ROS_INFO( "FILTER: Loaded %u points", (cloud->width * cloud->height));
 
     cloud->header.frame_id = GLOBAL_FRAME_ID;
 
@@ -703,9 +700,10 @@ int main (int argc, char** argv)
       blocks->clear();
       filter->process_point_cloud( cloud, &success, blocks);
 
-      std::cout << "success of the process: " << success << std::endl;
-      for(int i=0; i < blocks->size(); i++)
-        std::cout << "block nr.: " << i << "  " << blocks->at(i) << std::endl; 
+      ROS_INFO( "FILTER: success of the process: %u", success);
+      for(int i=0; i < blocks->size(); i++) {
+        ROS_INFO_STREAM( "FILTER: block nr.: " << i << " - " << blocks->at(i) );//);
+      }
 
       rate.sleep();
     }
@@ -715,7 +713,7 @@ int main (int argc, char** argv)
   // continius camera mode --> gets every 2 seconds a picture from the camera --> processes it the same way as it would like in the service --> outputs clouds for rviz and the blocks on the terminal as text
   if( !cmd.empty() && cmd == "cont")
   {
-    std::cout << "entering continious mode" << std::endl;
+    ROS_INFO( "FILTER: entering continious mode");
     bool success = false;
     std::vector<perception::Block>* blocks = new std::vector<perception::Block>; 
 
@@ -727,9 +725,10 @@ int main (int argc, char** argv)
       sensor_msgs::PointCloud2ConstPtr msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/camera/depth_registered/points", nh, ros::Duration(10));
       filter->sensor_msg_callback( msg, &success, blocks);
 
-      std::cout << "success of the process: " << success << std::endl;
-      for(int i=0; i < blocks->size(); i++)
-        std::cout << "block nr.: " << i << "  " << blocks->at(i) << std::endl; 
+      ROS_INFO( "FILTER: success of the process: %u", success);
+      for(int i=0; i < blocks->size(); i++) {
+        ROS_INFO_STREAM( "FILTER: block nr.: " << i << " - " << blocks->at(i) );
+      }
 
       rate.sleep();
     }

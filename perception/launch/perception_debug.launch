@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- roscore is automatically started with a launch file -->
+
+  <!-- camera link to world transformer -->
+  <node name="tf_camera_link_broadcaster" pkg="perception" type="tf_camera_link_broadcaster.py" respawn="false" output="screen"/>
+
+  <!-- load rosparameters -->
+  <rosparam file="$(find perception)/config/filter_parameters.yaml" command="load"/>
+
+  <!-- run filter -->
+  <node name="perception_filter" pkg="perception" type="filter" respawn="false" output="screen" args="debug $(find perception)/data_world_frame/4_in_row_far.pcd"/>
+
+  <!-- run rviz -->
+  <node name="rviz" pkg="rviz" type="rviz" respawn="false" />
+
+</launch>
