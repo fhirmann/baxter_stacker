@@ -8,6 +8,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/point_types_conversion.h>
 
 #include <pcl/filters/passthrough.h>
 #include <pcl/filters/filter.h>
@@ -25,6 +26,7 @@
 #include <pcl/io/pcd_io.h>
 
 //#include <pcl/visualization/cloud_viewer.h>
+#include<pcl/visualization/pcl_plotter.h>
 
 #include "perception/GetScene.h"
 #include "perception/Block.h"
@@ -77,7 +79,10 @@ class Filter
 
     Color red, blue, yellow, green;
 
+    pcl::visualization::PCLPlotter *plot1, *plot2, *plot3, *plot4;
+
   public:
+
     Filter(ros::NodeHandle nh):
       nh_(nh),
       table_x_low_(0.0), table_x_high_(0.0),
@@ -109,6 +114,10 @@ class Filter
       table_removed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB> >("/filter_table_removed", 1);
       filtered_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB> >("/filter_output", 1);
 
+      plot1 = new pcl::visualization::PCLPlotter();
+      plot2 = new pcl::visualization::PCLPlotter();
+      plot3 = new pcl::visualization::PCLPlotter();
+      plot4 = new pcl::visualization::PCLPlotter();
       //ROS_INFO_STREAM( "FILTER: end constructor" );
     }
 
@@ -574,6 +583,16 @@ class Filter
         return;
       }
 
+      /*
+      plot_color_distribution_rgb(table_removed_cloud);
+      plot_x_distribution(table_removed_cloud);
+      plot_y_distribution(table_removed_cloud);
+      plot_z_distribution(table_removed_cloud);*/
+
+      pcl::PointCloud<pcl::PointXYZHSV>::Ptr hsv_cloud (new pcl::PointCloud<pcl::PointXYZHSV>());
+      pcl::PointCloudXYZRGBtoXYZHSV(*table_removed_cloud, *hsv_cloud); // convert to hsv
+      plot_color_distribution_hsv(hsv_cloud);
+
       // segmentation by color
       color_clusters = color_segmentation( table_removed_cloud);
       ROS_INFO_STREAM( "FILTER: color_segementation nr of clusters: " << color_clusters->size() );
@@ -600,7 +619,7 @@ class Filter
     {      
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud;
-      
+
       // convert msgs to point cloud
       pcl::fromROSMsg(*input, *input_cloud);
 
@@ -613,7 +632,8 @@ class Filter
       }
 
       // save pointcloud to file for debug mode
-	    //pcl::io::savePCDFileASCII("transformt.pcd", *transformed_cloud);
+	    //pcl::io::savePCDFileASCII("transformt.pcd", *transformed_cloud, 8);
+      pcl::io::savePCDFileBinary("transformt.pcd", *transformed_cloud);
 
       process_point_cloud( transformed_cloud, success, blocks);
 
@@ -645,6 +665,112 @@ class Filter
       ROS_INFO_STREAM( "FILTER: sending back response " );
       return true;
     }
+
+    void plot_color_distribution_rgb( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+    {
+      // plot red distribution of points
+      std::vector<double> r, g, b;
+
+      int N = cloud->points.size();
+
+      for(int i = 0; i < N; i++)
+      {
+        r.push_back( cloud->points.at(i).r);
+        g.push_back( cloud->points.at(i).g);
+        b.push_back( cloud->points.at(i).b);
+      }
+
+      plot1->clearPlots();
+      plot1->addHistogramData(r, 255, "red", std::vector<char>{-127,0,0,-127});
+      plot1->addHistogramData(g, 255, "green", std::vector<char>{0,-127,0,-127});
+      plot1->addHistogramData(b, 255, "blue", std::vector<char>{0,0,-127,-127});
+      plot1->setShowLegend(true);
+      plot1->plot();
+    }
+
+    void plot_color_distribution_hsv( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud)
+    {
+      // plot red distribution of points
+      std::vector<double> h, s, v;
+
+      int N = cloud->points.size();
+
+      for(int i = 0; i < N; i++)
+      {
+        h.push_back( cloud->points.at(i).h);
+        s.push_back( cloud->points.at(i).s);
+        v.push_back( cloud->points.at(i).v);
+      }
+
+      plot1->clearPlots();
+      plot1->addHistogramData(h, 255, "hue", std::vector<char>{127,0,0,127});
+      plot1->setShowLegend(true);
+      plot1->plot();
+
+      plot2->clearPlots();
+      plot2->addHistogramData(s, 255, "saturation", std::vector<char>{0,127,0,127});
+      plot2->setShowLegend(true);
+      plot2->plot();
+
+      plot3->clearPlots();
+      plot3->addHistogramData(v, 255, "value", std::vector<char>{0,0,127,127});
+      plot3->setShowLegend(true);
+      plot3->plot();
+    }
+
+    void plot_x_distribution( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+    {
+      // plot red distribution of points
+      std::vector<double> x;
+
+      int N = cloud->points.size();
+
+      for(int i = 0; i < N; i++)
+      {
+        x.push_back( cloud->points.at(i).x);
+      }
+
+      plot2->clearPlots();
+      plot2->addHistogramData(x, 100, "x");
+      plot2->setShowLegend(true);
+      plot2->plot();
+    }
+
+    void plot_y_distribution( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+    {
+      // plot red distribution of points
+      std::vector<double> y;
+
+      int N = cloud->points.size();
+
+      for(int i = 0; i < N; i++)
+      {
+        y.push_back( cloud->points.at(i).y);
+      }
+
+      plot3->clearPlots();
+      plot3->addHistogramData(y, 100, "y");
+      plot3->setShowLegend(true);
+      plot3->plot();
+    }
+
+    void plot_z_distribution( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+    {
+      // plot red distribution of points
+      std::vector<double> z;
+
+      int N = cloud->points.size();
+
+      for(int i = 0; i < N; i++)
+      {
+        z.push_back( cloud->points.at(i).z);
+      }
+
+      plot4->clearPlots();
+      plot4->addHistogramData(z, 100, "z");
+      plot4->setShowLegend(true);
+      plot4->plot();
+    }
 };
 
 
@@ -658,7 +784,7 @@ int main (int argc, char** argv)
   // Initialize ROS
   ros::init (argc, argv, "baxter_perception");
   ros::NodeHandle nh;
-  ros::Rate rate(0.5);
+  ros::Rate rate(0.2);
   
   Filter* filter = new Filter(nh);
   ROS_INFO("FILTER: init done");
