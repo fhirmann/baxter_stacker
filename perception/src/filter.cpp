@@ -81,6 +81,11 @@ class Filter
 
     pcl::visualization::PCLPlotter *plot1, *plot2, *plot3, *plot4;
 
+    sensor_msgs::PointCloud2 latest_sensor_msg;
+    boost::mutex latest_sensor_msg_lock;
+    pcl::PointCloud<pcl::PointXYZRGB> *input_cloud;
+    
+
   public:
 
     Filter(ros::NodeHandle nh):
@@ -97,12 +102,14 @@ class Filter
       outlier_remove_radius_(0.0),
       outlier_remove_min_neighb_(0)
     {
-
       //ROS_INFO_STREAM( "FILTER: start constructor" );
+      //latest_sensor_msg = new sensor_msgs::PointCloud2ConstPtr;
+      //input_cloud = new pcl::PointCloud<pcl::PointXYZRGB>;
 
       // Create a ROS subscriber for the input point cloud
-      //point_cloud_sub_ = nh_.subscribe ("/camera/depth_registered/points", 1, &Filter::sensor_msg_callback, this);
-      
+      point_cloud_sub_ = nh_.subscribe ("/camera/depth_registered/points", 1, &Filter::sensor_msg_callback, this);
+      //TODO: insert delay for around 1 second such that the camera exposure is fine
+
       // advertise new ros service GetScene
       service_ = nh_.advertiseService("get_scene", &Filter::get_scene_callback, this);
       ROS_INFO( "FILTER: Service get_scene activated!");
@@ -614,14 +621,34 @@ class Filter
     /*============================================================================*/
     /*====== callbacks ===========================================================*/
     /*============================================================================*/
+    void sensor_msg_callback (const sensor_msgs::PointCloud2ConstPtr& input)
+    { 
+      latest_sensor_msg_lock.lock();    
+      //pcl::fromROSMsg( *input, *input_cloud);
+      //latest_sensor_msg = *input;
+      latest_sensor_msg_lock.unlock();
+    }
 
-    void sensor_msg_callback (const sensor_msgs::PointCloud2ConstPtr& input, bool* success, std::vector<perception::Block>* blocks)
-    {      
+
+    void process_msg ( const sensor_msgs::PointCloud2ConstPtr& input, bool* success, std::vector<perception::Block>* blocks)
+    {
+      //sensor_msgs::PointCloud2 current_input;// = new sensor_msgs::PointCloud2ConstPtr(); 
+      //const sensor_msgs::PointCloud2ConstPtr& input = &current_input;     
+      //pcl::PointCloud<pcl::PointXYZRGB>* current_cloud = new pcl::PointCloud<pcl::PointXYZRGB>;
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+      //pcl::PointCloud<pcl::PointXYZRGB>::Ptr current_cloud_ptr(current_cloud);
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud;
 
+      //grap current sensor message
+      //latest_sensor_msg_lock.lock(); 
+      //current_input = latest_sensor_msg;
+      //current_cloud = input_cloud;
+      //latest_sensor_msg_lock.unlock(); 
+
+      //TODO: check if message is up to date
+
       // convert msgs to point cloud
-      pcl::fromROSMsg(*input, *input_cloud);
+      pcl::fromROSMsg( *input, *input_cloud);
 
       // transform to baxter axis
       transformed_cloud = transform_to_baxters_axis( input_cloud);
@@ -633,12 +660,12 @@ class Filter
 
       // save pointcloud to file for debug mode
 	    //pcl::io::savePCDFileASCII("ascii.pcd", *transformed_cloud);
-      //pcl::io::savePCDFileBinary("binary.pcd", *transformed_cloud);
+      pcl::io::savePCDFileBinary("binary.pcd", *transformed_cloud);
 
       process_point_cloud( transformed_cloud, success, blocks);
 
       // Publish the data.
-      input_pc_pub_.publish( *input_cloud);
+      input_pc_pub_.publish( input_cloud);
     }
 
 
@@ -656,7 +683,7 @@ class Filter
       sensor_msgs::PointCloud2ConstPtr msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/camera/depth_registered/points", nh_, ros::Duration(10));
       
       //process data
-      sensor_msg_callback( msg, &success, blocks);
+      process_msg( msg, &success, blocks);
 
       //return output
       res.success = success;
@@ -666,6 +693,10 @@ class Filter
       return true;
     }
 
+
+    /*============================================================================*/
+    /*====== statistical plots ===================================================*/
+    /*============================================================================*/
     void plot_color_distribution_rgb( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
     {
       // plot red distribution of points
@@ -849,7 +880,7 @@ int main (int argc, char** argv)
       blocks->clear();    
 
       sensor_msgs::PointCloud2ConstPtr msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/camera/depth_registered/points", nh, ros::Duration(10));
-      filter->sensor_msg_callback( msg, &success, blocks);
+      filter->process_msg( msg, &success, blocks);
 
       ROS_INFO( "FILTER: success of the process: %u", success);
       for(int i=0; i < blocks->size(); i++) {
