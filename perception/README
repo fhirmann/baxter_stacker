@@ -33,3 +33,20 @@ rosrun perception filter
 
 5.) (optional) run rviz to visualize the different clouds - add a PointCloud2 and select the desired topic
 rosrun rviz rviz
+
+
+====================================================================================================================
+FYI
+============================
+
+Error: Device in safe mode. Cannot start any stream. 
+Solution: Un- and replugin the USB Cable of the Camera
+
+PCD Files can simple be viewed with command pcl_viewer "file_name.pcd"
+
+PCD Files saved in ASCII format loss the color information. All points are only red anymore -> save as binary
+
+PCD Files always save the color in RGB Colorspace
+
+Rosbag: recording a rostopic message into a file works with rosbag record -l #numberOfMessages #topicName
+

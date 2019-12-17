@@ -589,9 +589,9 @@ class Filter
       plot_y_distribution(table_removed_cloud);
       plot_z_distribution(table_removed_cloud);*/
 
-      pcl::PointCloud<pcl::PointXYZHSV>::Ptr hsv_cloud (new pcl::PointCloud<pcl::PointXYZHSV>());
+      /*pcl::PointCloud<pcl::PointXYZHSV>::Ptr hsv_cloud (new pcl::PointCloud<pcl::PointXYZHSV>());
       pcl::PointCloudXYZRGBtoXYZHSV(*table_removed_cloud, *hsv_cloud); // convert to hsv
-      plot_color_distribution_hsv(hsv_cloud);
+      plot_color_distribution_hsv(hsv_cloud);*/
 
       // segmentation by color
       color_clusters = color_segmentation( table_removed_cloud);
@@ -632,8 +632,8 @@ class Filter
       }
 
       // save pointcloud to file for debug mode
-	    //pcl::io::savePCDFileASCII("transformt.pcd", *transformed_cloud, 8);
-      pcl::io::savePCDFileBinary("transformt.pcd", *transformed_cloud);
+	    //pcl::io::savePCDFileASCII("ascii.pcd", *transformed_cloud);
+      //pcl::io::savePCDFileBinary("binary.pcd", *transformed_cloud);
 
       process_point_cloud( transformed_cloud, success, blocks);
 
