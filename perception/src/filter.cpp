@@ -510,6 +510,9 @@ class Filter
 
         ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() );
 
+        if( cloud->points.size() < 30)
+          continue;
+
         // get statistic values
         double x_min, x_max, x_mean;
         double y_min, y_max, y_mean;
@@ -887,7 +890,14 @@ int main (int argc, char** argv)
       blocks->clear();    
 
       sensor_msgs::PointCloud2ConstPtr msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/camera/depth_registered/points", nh, ros::Duration(10));
-      filter->process_msg( msg, &success, blocks);
+      
+      if(msg)
+        filter->process_msg( msg, &success, blocks);
+      else
+      {
+        ROS_ERROR_STREAM("FILTER: run into timeout because did not receive a pointcloud message");
+      }
+
 
       ROS_INFO( "FILTER: success of the process: %u", success);
       for(int i=0; i < blocks->size(); i++) {
