@@ -682,8 +682,15 @@ class Filter
       //get data from camera
       sensor_msgs::PointCloud2ConstPtr msg = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/camera/depth_registered/points", nh_, ros::Duration(10));
       
-      //process data
-      process_msg( msg, &success, blocks);
+      if (msg)
+      {
+        //process data
+        process_msg( msg, &success, blocks);
+      }      
+      else
+      {
+        ROS_ERROR_STREAM("FILTER: run into timeout because did not receive a pointcloud message");
+      }
 
       //return output
       res.success = success;
