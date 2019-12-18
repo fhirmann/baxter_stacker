@@ -5,7 +5,8 @@ import tf
 if __name__ == '__main__':
     rospy.init_node('tf_camera_link_broadcaster')
     br = tf.TransformBroadcaster()
-    rate = rospy.Rate(10.0)
+    rate = rospy.Rate(2.0)
+    first = 0
 
     while not rospy.is_shutdown():
         br.sendTransform((0.14, 0.1, 0.835),
@@ -13,6 +14,10 @@ if __name__ == '__main__':
                          rospy.Time.now(),
                          "camera_link",
                          "world")
+
+        if first == 0:
+            rospy.loginfo("TF_CAMERA_WORLD: transformation broadcast is running" )
+            first = 1
 
         #print("running")
         rate.sleep()
