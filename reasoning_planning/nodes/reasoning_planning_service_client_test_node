@@ -31,8 +31,8 @@ def create_simple_test_scene_request_correct():
         StackGoalServiceRequest -- the request
     """
     req = StackGoalServiceRequest()
-    req.top_block_semantics = [req.BLUE]
-    req.below_block_semantics = [req.RED]
+    req.top_block_semantics = [req.YELLOW]
+    req.below_block_semantics = [req.BLUE]
 
     return req
 
