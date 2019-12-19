@@ -41,8 +41,6 @@ struct Color
   int b;
 };
 
-bool debug;
-
 /*============================================================================*/
 /*==== Transform point cloud to baxter base  =================================*/
 /*============================================================================*/
@@ -55,6 +53,7 @@ class Filter
     ros::NodeHandle nh_;
     ros::Subscriber point_cloud_sub_;
     ros::ServiceServer service_;
+    ros::Timer timer;
 
     ros::Publisher  input_pc_pub_;
     ros::Publisher  transformed_pc_pub_;
@@ -87,6 +86,7 @@ class Filter
     boost::mutex latest_sensor_msg_lock;
 
     int count;
+    bool debug;
 
     /*============================================================================*/
     /*===== load parameters ======================================================*/
@@ -264,7 +264,8 @@ class Filter
     /*============================================================================*/
     /*===== segmentation of the cloud by color clustering ========================*/
     /*============================================================================*/
-    std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_segmentation( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+    std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_segmentation(
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
     {
       // return a vector of point cloud pointers. Each pc includes points of one colored cluster
 
@@ -396,7 +397,7 @@ class Filter
       *g_mean = *g_mean / N;
       *b_mean = *b_mean / N;
 
-      ROS_INFO_STREAM( "FILTER:  x min: " << *x_min << " mean: " << *x_mean <<
+      /*ROS_INFO_STREAM( "FILTER:  x min: " << *x_min << " mean: " << *x_mean <<
                                           " max: " << *x_max );
       ROS_INFO_STREAM( "FILTER:  y min: " << *y_min << " mean: " << *y_mean <<
                                           " max: " << *y_max );
@@ -407,7 +408,7 @@ class Filter
       ROS_INFO_STREAM( "FILTER:  g min: " << *g_min << " mean: " << *g_mean <<
                                           " max: " << *g_max );
       ROS_INFO_STREAM( "FILTER:  b min: " << *b_min << " mean: " << *b_mean <<
-                                          " max: " << *b_max );
+                                          " max: " << *b_max );*/
     }
 
     /*============================================================================*/
@@ -456,7 +457,8 @@ class Filter
     }
 
 
-    void object_extraction( std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters, bool* success, std::vector<perception::Block>* blocks)
+    void object_extraction( std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters, bool* success,
+                            std::vector<perception::Block>* blocks)
     {
       ROS_INFO_STREAM( "FILTER: object_extraction " << color_clusters->size() );
 
@@ -522,12 +524,105 @@ class Filter
     }
 
     /*============================================================================*/
+    /*====== process the point cloud =============================================*/
+    /*============================================================================*/
+
+    void process_latest_msg ( bool* success, std::vector<perception::Block>* blocks)
+    {
+      sensor_msgs::PointCloud2 current_sensor_msg;
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud;
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr trimmed_cloud;
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr table_removed_cloud;
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr output_cloud;
+      std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters;
+
+      // Load all parameters
+      load_parameters();
+
+      //grap current sensor message
+      latest_sensor_msg_lock.lock();
+      current_sensor_msg = latest_sensor_msg;
+      latest_sensor_msg_lock.unlock();
+
+      //handle debug mode with rosbag (timestamps wrong!)
+      if( debug)
+        current_sensor_msg.header.stamp = ros::Time::now() - ros::Duration(5);
+
+      //check if message is up to date
+      if( current_sensor_msg.header.frame_id.empty() ||
+          (ros::Time::now().toSec() - current_sensor_msg.header.stamp.toSec() ) > 200)
+      {
+        ROS_ERROR_STREAM("FILTER: No current camera data is available  " << ros::Time::now().toSec() << " - " <<
+                         current_sensor_msg.header.stamp.toSec() << " = " <<
+                         (ros::Time::now().toSec() - current_sensor_msg.header.stamp.toSec()));
+        *success = false;
+        return;
+      }
+
+      // convert msgs to point cloud
+      pcl::fromROSMsg( current_sensor_msg, *input_cloud);
+
+      // transform to baxter axis
+      transformed_cloud = transform_to_baxters_axis( input_cloud);
+      ROS_INFO_STREAM( "FILTER: \ntransformed_cloud: " << transformed_cloud->points.size() );
+      if (transformed_cloud->points.size() == 0){
+        *success = false;
+        return;
+      }
+
+      // Limit points corresponding to table
+      trimmed_cloud = limit_points_to_table( transformed_cloud);
+      ROS_INFO_STREAM( "FILTER: trimmed_cloud: " << trimmed_cloud->points.size() );
+      if (trimmed_cloud->points.size() == 0){
+        *success = false;
+        return;
+      }
+
+      // remove table surface (planar model) from the cloud
+      table_removed_cloud = plane_segmentation( trimmed_cloud);
+      ROS_INFO_STREAM( "FILTER: table_removed_cloud: " << table_removed_cloud->points.size() );
+      if (table_removed_cloud->points.size() == 0){
+        *success = false;
+        return;
+      }
+
+      /*
+      plot_color_distribution_rgb(table_removed_cloud);
+      plot_x_distribution(table_removed_cloud);
+      plot_y_distribution(table_removed_cloud);
+      plot_z_distribution(table_removed_cloud);*/
+
+      /*pcl::PointCloud<pcl::PointXYZHSV>::Ptr hsv_cloud (new pcl::PointCloud<pcl::PointXYZHSV>());
+      pcl::PointCloudXYZRGBtoXYZHSV(*table_removed_cloud, *hsv_cloud); // convert to hsv
+      plot_color_distribution_hsv(hsv_cloud);*/
+
+      // segmentation by color
+      color_clusters = color_segmentation( table_removed_cloud);
+      ROS_INFO_STREAM( "FILTER: color_segementation nr of clusters: " << color_clusters->size() );
+      if (color_clusters->size() == 0){
+        *success = false;
+        return;
+      }
+
+      // extract object information
+      object_extraction( color_clusters, success, blocks );
+
+      // Publish the data.
+      input_pc_pub_.publish( *input_cloud);
+      transformed_pc_pub_.publish( *transformed_cloud);
+      trimmed_pc_pub_.publish( *trimmed_cloud);
+      table_removed_pc_pub_.publish( *table_removed_cloud);
+      filtered_pc_pub_.publish( color_clusters->at(0));
+    }
+
+
+    /*============================================================================*/
     /*====== callbacks ===========================================================*/
     /*============================================================================*/
     void sensor_msg_callback (const sensor_msgs::PointCloud2ConstPtr& input)
     {
       latest_sensor_msg_lock.lock();
-      //pcl::fromROSMsg( *input, *input_cloud);
       latest_sensor_msg = *input;
       latest_sensor_msg_lock.unlock();
 
@@ -559,6 +654,17 @@ class Filter
       return true;
     }
 
+    void timer_callback(const ros::TimerEvent& event)
+    {
+      ROS_INFO_STREAM( "FILTER: periodical request from timer" );
+
+      //define output variables
+      bool success = false;
+      std::vector<perception::Block>* blocks = new std::vector<perception::Block>;
+
+      //process latest sensor message
+      process_latest_msg( &success, blocks);
+    }
 
     /*============================================================================*/
     /*====== statistical plots ===================================================*/
@@ -671,7 +777,7 @@ class Filter
 
 public:
 
-    Filter(ros::NodeHandle nh):
+    Filter(ros::NodeHandle nh, std::string cmd):
       nh_(nh),
       table_x_low_(0.0), table_x_high_(0.0),
       table_y_low_(0.0), table_y_high_(0.0),
@@ -686,135 +792,36 @@ public:
       outlier_remove_min_neighb_(0)
     {
       //ROS_INFO_STREAM( "FILTER: start constructor" );
+      if( !cmd.empty() && cmd == "debug")
+      {
+        ROS_INFO("FILTER: entering debug mode");
+        debug = true;
+      }else
+        debug = false;
 
       // Create a ROS subscriber for the input point cloud and sleep for a second so the camera publishes good data
       point_cloud_sub_ = nh_.subscribe ("/camera/depth_registered/points", 1, &Filter::sensor_msg_callback, this);
       ros::Duration(1).sleep();
+
+      // Create a timer to periodically process the latest scene
+      timer = nh_.createTimer(ros::Duration(3.0), &Filter::timer_callback, this);
 
       // advertise new ros service GetScene
       service_ = nh_.advertiseService("get_scene", &Filter::get_scene_callback, this);
       ROS_INFO( "FILTER: Service get_scene activated!");
       
       // Create a ROS publisher for the output point cloud
-      input_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB> >("/filter_input", 1);
-      transformed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB> >("/filter_transformed", 1);
-      trimmed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB> >("/filter_trimmed", 1);
-      table_removed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB> >("/filter_table_removed", 1);
-      filtered_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB> >("/filter_output", 1);
+      input_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_input", 1);
+      transformed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_transformed", 1);
+      trimmed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_trimmed", 1);
+      table_removed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_table_removed", 1);
+      filtered_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_output", 1);
 
       plot1 = new pcl::visualization::PCLPlotter();
       plot2 = new pcl::visualization::PCLPlotter();
       plot3 = new pcl::visualization::PCLPlotter();
       plot4 = new pcl::visualization::PCLPlotter();
       //ROS_INFO_STREAM( "FILTER: end constructor" );
-    }
-
-    /*============================================================================*/
-    /*====== process the point cloud =============================================*/
-    /*============================================================================*/
-    void process_point_cloud( pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud, bool* success, std::vector<perception::Block>* blocks)
-    {
-      pcl::PointCloud<pcl::PointXYZRGB>::Ptr trimmed_cloud;
-      pcl::PointCloud<pcl::PointXYZRGB>::Ptr table_removed_cloud;
-      pcl::PointCloud<pcl::PointXYZRGB>::Ptr output_cloud;
-      std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters;
-
-      // Load all parameters
-      load_parameters();
-
-      // Do data processing here...
-
-      // Limit points corresponding to table
-      trimmed_cloud = limit_points_to_table( input_cloud);
-      ROS_INFO_STREAM( "FILTER: trimmed_cloud: " << trimmed_cloud->points.size() );
-      if (trimmed_cloud->points.size() == 0){
-        *success = false;
-        return;
-      }
-
-      // remove table surface (planar model) from the cloud
-      table_removed_cloud = plane_segmentation( trimmed_cloud);
-      ROS_INFO_STREAM( "FILTER: table_removed_cloud: " << table_removed_cloud->points.size() );
-      if (table_removed_cloud->points.size() == 0){
-        *success = false;
-        return;
-      }
-
-      /*
-      plot_color_distribution_rgb(table_removed_cloud);
-      plot_x_distribution(table_removed_cloud);
-      plot_y_distribution(table_removed_cloud);
-      plot_z_distribution(table_removed_cloud);*/
-
-      /*pcl::PointCloud<pcl::PointXYZHSV>::Ptr hsv_cloud (new pcl::PointCloud<pcl::PointXYZHSV>());
-      pcl::PointCloudXYZRGBtoXYZHSV(*table_removed_cloud, *hsv_cloud); // convert to hsv
-      plot_color_distribution_hsv(hsv_cloud);*/
-
-      // segmentation by color
-      color_clusters = color_segmentation( table_removed_cloud);
-      ROS_INFO_STREAM( "FILTER: color_segementation nr of clusters: " << color_clusters->size() );
-      if (color_clusters->size() == 0){
-        *success = false;
-        return;
-      }
-
-      // extract object information
-      object_extraction( color_clusters, success, blocks );
-
-      // Publish the data.
-      transformed_pc_pub_.publish( *input_cloud);
-      trimmed_pc_pub_.publish( *trimmed_cloud);
-      table_removed_pc_pub_.publish( *table_removed_cloud);
-      filtered_pc_pub_.publish( color_clusters->at(0));
-    }
-
-    void process_latest_msg ( bool* success, std::vector<perception::Block>* blocks)
-    {
-      sensor_msgs::PointCloud2 current_sensor_msg;
-      pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-      pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud;
-
-      //grap current sensor message
-      latest_sensor_msg_lock.lock();
-      current_sensor_msg = latest_sensor_msg;
-      ROS_INFO_STREAM( "process_latest_msg \n" << latest_sensor_msg.header );
-      //ROS_INFO_STREAM( current_sensor_msg.header);
-      latest_sensor_msg_lock.unlock();
-
-      //handle debug mode with rosbag (timestamps wrong!)
-      if( debug)
-        current_sensor_msg.header.stamp = ros::Time::now();
-
-      //check if message is up to date
-      if( current_sensor_msg.header.frame_id.empty() ||
-          (ros::Time::now().toSec() - current_sensor_msg.header.stamp.toSec() ) > 200)
-      {
-        ROS_ERROR_STREAM("FILTER: No current camera data is available  " << ros::Time::now().toSec() << " - " <<
-                          current_sensor_msg.header.stamp.toSec() << " = " << (ros::Time::now().toSec() -
-                          current_sensor_msg.header.stamp.toSec()));
-        *success = false;
-        return;
-      }
-
-      // convert msgs to point cloud
-      pcl::fromROSMsg( current_sensor_msg, *input_cloud);
-
-      // transform to baxter axis
-      transformed_cloud = transform_to_baxters_axis( input_cloud);
-      ROS_INFO_STREAM( "FILTER: \ntransformed_cloud: " << transformed_cloud->points.size() );
-      if (transformed_cloud->points.size() == 0){
-        *success = false;
-        return;
-      }
-
-      // save pointcloud to file for debug mode
-      //pcl::io::savePCDFileASCII("ascii.pcd", *transformed_cloud);
-      //pcl::io::savePCDFileBinary("binary.pcd", *transformed_cloud);
-
-      process_point_cloud( transformed_cloud, success, blocks);
-
-      // Publish the data.
-      input_pc_pub_.publish( input_cloud);
     }
 };
 
@@ -829,87 +836,13 @@ int main (int argc, char** argv)
   // Initialize ROS
   ros::init (argc, argv, "baxter_perception");
   ros::NodeHandle nh;
-  ros::Rate rate(0.2);
-  
-  Filter* filter = new Filter(nh);
-  ROS_INFO("FILTER: init done");
 
   //parse calling arguments
-  ROS_INFO_STREAM( "FILTER: Number of arguments " << argc);
-  std::string cmd;  
-  std::string filename;
-
-  debug = false;
-  
+  std::string cmd;
   if(argc >=2) cmd = argv[1];
-  if(argc >=3) filename = argv[2];
 
-  // running in debug mode --> load pcd file and execute the same point cloud processing on it as in the service call
-  if( !cmd.empty() && cmd == "debug")
-  {
-    ROS_INFO("FILTER: entering debug mode with the file %s", filename.c_str());
-
-    // load point cloud from file
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGB>);
-
-    if (pcl::io::loadPCDFile<pcl::PointXYZRGB> (filename, *cloud) == -1)
-    {
-      PCL_ERROR ("Couldn't read file\n");
-      return (-1);
-    }
-    ROS_INFO( "FILTER: Loaded %u points", (cloud->width * cloud->height));
-
-    cloud->header.frame_id = GLOBAL_FRAME_ID;
-
-    // view point cloud
-    //pcl::visualization::CloudViewer viewer("input cloud");
-	  //viewer.showCloud(cloud);
-
-    bool success = false;
-    std::vector<perception::Block>* blocks = new std::vector<perception::Block>;      
-
-    while (ros::ok())
-    {
-      blocks->clear();
-      filter->process_point_cloud( cloud, &success, blocks);
-
-      ROS_INFO( "FILTER: success of the process: %u", success);
-      for(int i=0; i < blocks->size(); i++) {
-        ROS_INFO_STREAM( "FILTER: block nr.: " << i << " - " << blocks->at(i) );//);
-      }
-
-      rate.sleep();
-    }
-  }
-
-
-  // continius camera mode --> gets every 2 seconds a picture from the camera --> processes it the same way as it would like in the service --> outputs clouds for rviz and the blocks on the terminal as text
-  if( !cmd.empty() && cmd == "cont")
-  {
-    ROS_INFO( "FILTER: entering continious mode");
-    bool success = false;
-    std::vector<perception::Block>* blocks = new std::vector<perception::Block>; 
-
-    debug = true;
-
-    // if it is in continuos mode - get message --> extract object info --> publish info --> repeat at a 1Hz frequency
-    while (ros::ok())
-    {
-      blocks->clear();
-
-      ros::spinOnce();
-      filter->process_latest_msg( &success, blocks);
-
-
-      ROS_INFO( "FILTER: success of the process: %u", success);
-      for(int i=0; i < blocks->size(); i++) {
-        ROS_INFO_STREAM( "FILTER: block nr.: " << i << " - " << blocks->at(i) );
-      }
-
-
-      rate.sleep();
-    }
-  }
+  Filter* filter = new Filter( nh, cmd);
+  ROS_INFO("FILTER: init done");
 
   // Spin
   ros::spin();
