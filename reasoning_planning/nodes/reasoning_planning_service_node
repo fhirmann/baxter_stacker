@@ -133,7 +133,7 @@ def is_relative_semantic(filter_semantic):
             or filter_semantic == StackGoalServiceRequest.HIGHER_RELATIVE \
             or filter_semantic == StackGoalServiceRequest.LOWER_RELATIVE
 
-def get_filtered_blocks_without_relative_semantics(semantics):
+def get_filtered_blocks_without_relative_semantics(blocks, semantics):
     # sort the semantics by number which means color is always first before others
     semantics = list(semantics)
     semantics.sort()
@@ -141,7 +141,7 @@ def get_filtered_blocks_without_relative_semantics(semantics):
     # filter away the relative semantics
     semantics = filter(lambda filter_semantic: not is_relative_semantic(filter_semantic), semantics)
 
-    blocks_filtered = list(get_all_blocks_from_db())
+    blocks_filtered = blocks
 
     for semantic in semantics:
         blocks_filtered = filter_blocks(blocks_filtered, semantic)
@@ -213,13 +213,42 @@ def handle_stack_goal_service(req):
 
     # handle request
 
-    get_scene_and_store_in_db()
+    if not get_scene_and_store_in_db():
+        rospy.loginfo("Could not receive scene from perception")
+        response = StackGoalServiceResponse()
+
+        response.success = False
+        response.top_block_error = StackGoalServiceResponse.NO_ERROR
+        response.below_block_error = StackGoalServiceResponse.NO_ERROR
+        response.general_error = StackGoalServiceResponse.NOT_SUCCESSFULLY_RECEIVED_BLOCKS_FROM_PERCEPTION
+        
+        rospy.loginfo("handle_stack_goal_service: response: \n{}".format(response))
+
+        return response
+
 
     # filter out blocks
-    
-    top_blocks_filtered = get_filtered_blocks_without_relative_semantics(req.top_block_semantics)
 
-    below_blocks_filtered = get_filtered_blocks_without_relative_semantics(req.below_block_semantics)
+    all_blocks = list(get_all_blocks_from_db())
+
+
+    if len(all_blocks) < 2:
+        rospy.loginfo("There are less than 2 blocks in the scene database. Stacking is therefore not possible.")
+        response = StackGoalServiceResponse()
+
+        response.success = False
+        response.top_block_error = StackGoalServiceResponse.NO_ERROR
+        response.below_block_error = StackGoalServiceResponse.NO_ERROR
+        response.general_error = StackGoalServiceResponse.LESS_THAN_TWO_BLOCKS_RECEIVED_FROM_PERCEPTION
+        
+        rospy.loginfo("handle_stack_goal_service: response: \n{}".format(response))
+
+        return response
+
+    
+    top_blocks_filtered = get_filtered_blocks_without_relative_semantics(all_blocks, req.top_block_semantics)
+
+    below_blocks_filtered = get_filtered_blocks_without_relative_semantics(all_blocks, req.below_block_semantics)
 
     # relative semantics can only be applied when there is just one other block left
     if len(top_blocks_filtered) == 1:
@@ -271,8 +300,7 @@ def handle_stack_goal_service(req):
         response = achieve_goal(response)        
 
 
-    rospy.loginfo("handle_stack_goal_service: response:")
-    print response
+    rospy.loginfo("handle_stack_goal_service: response: \n{}".format(response))
 
     return response
 

@@ -30,7 +30,7 @@ def get_defined_block2_from_test_scene():
     block = Block()
     block.id = 2
     block.type = block.CUBOID
-    block.color = block.GREEN
+    block.color = block.RED
 
     block.width = 20./1000.
     block.depth = 40./1000.
@@ -51,9 +51,9 @@ def get_block_stacked_on_block1_from_test_scene():
     block = Block()
     block.id = 3
     block.type = block.CUBOID
-    block.color = block.RED
+    block.color = block.BLUE
 
-    block.width = 20./1000.
+    block.width = 40./1000.
     block.depth = 40./1000.
     block.height = 80./1000.
 
@@ -74,7 +74,7 @@ def get_block_stacked_on_block3_from_test_scene():
     block = Block()
     block.id = 4
     block.type = block.CUBOID
-    block.color = block.RED
+    block.color = block.GREEN
 
     block.width = 20./1000.
     block.depth = 40./1000.
@@ -94,24 +94,30 @@ def get_block_stacked_on_block3_from_test_scene():
     return block
 
 def block_list_simple_scene():
+    # large yellow_block is on loc1
+    # red block is on loc2
     return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene()]
 
 
 def block_list_stacked_scene2():
-    # yellow_block is on loc1, blue_block is stacked on yellow_block, red block is again stacked on yellow block
-    # other yellow block is on loc2, 
-    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene()]
+    # large yellow_block is on loc1, large blue block is stacked on large yellow block, small green block is again stacked on large blue block
+    # red block is on loc2
+    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene(), get_block_stacked_on_block1_from_test_scene(), get_block_stacked_on_block3_from_test_scene()]
 
 def block_list_stacked_scene():
-    # yellow_block is on loc1, blue_block is stacked on yellow_block
-    # other yellow block is on loc2, third 
-    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene()]
+    # large yellow_block is on loc1, large blue block is stacked on large yellow_block
+    # small red block is on loc2
+    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene(), get_block_stacked_on_block1_from_test_scene()]
     
 
 def handle_get_scene(req):
+    rospy.loginfo("Handling get_scene service...")
 
-    block_list = block_list_stacked_scene()
+    block_list = block_list_stacked_scene2()
     success = True
+
+
+    rospy.loginfo("Blocks are: \n{}".format(block_list))
 
     return GetSceneResponse(success, block_list)
 

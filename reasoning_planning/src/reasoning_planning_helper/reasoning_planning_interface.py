@@ -77,22 +77,24 @@ def get_location_pose(name):
 
 def clear_blocks_from_scene_db():
     # clear stored pose informations in scene database (mongo db)
+    rospy.loginfo("Clearing blocks from scene database")
     msg_store = MessageStoreProxy()
     res = msg_store.query(Block._type)
 
     for (block, meta) in res:
-        print meta
+        #print meta
 
         block_id = meta['_id']
         msg_store.delete(str(block_id))
 
 def clear_locations_from_scene_db():
     # clear stored location informations in scene database (mongo db)
+    rospy.loginfo("Clearing locations from scene database")
     msg_store = MessageStoreProxy()
     res = msg_store.query(Pose._type)
 
     for (pose, meta) in res:
-        print meta
+        #print meta
 
         location_id = meta['_id']
         msg_store.delete(str(location_id))
@@ -102,7 +104,8 @@ def get_scene_and_store_in_db():
     get_scene_service = rospy.ServiceProxy('/get_scene', GetScene)
     result = get_scene_service()
 
-    print result
+    rospy.loginfo("Response from get_scene service: \n{}".format(result))
+    
     if result.success:
 
         # clear previous items in scene db and knowledge base
@@ -112,8 +115,8 @@ def get_scene_and_store_in_db():
         clear_service = rospy.ServiceProxy('/rosplan_knowledge_base/clear', Empty)
         result_clear = clear_service()
 
-        print "result_clear = "
-        print result_clear
+        #print "result_clear = "
+        #print result_clear
 
         msg_store = MessageStoreProxy()
 
@@ -127,6 +130,8 @@ def get_scene_and_store_in_db():
             tmp_pose = listener.transformPose("table", block.pose)
 
             block.pose = tmp_pose
+
+            rospy.loginfo("Storing following block in scene db: \n{}".format(block))
 
             msg_store.insert_named('block{}'.format(block.id), block)
     
@@ -159,10 +164,18 @@ def create_knowledge_from_scene_db():
         pos = block.pose.pose.position
 
         lower_face_pose_z = pos.z - block.height / 2.
+        
+        # height from the z-coordinate origin to the table ground. 
+        # In the table frame this is zero.
+        table_height = 0 
 
-        table_height = 0
-
-        epsilon = 100./1000
+        # This parameters must be tweaked according to possible accuracy of perception. 
+        # This parameter is the epsilon distance in meter between two blocks or 
+        # table to detect if the block is actually standing "on" the table/block. 
+        # A low value is prefered to have low false positives but this can hinder to 
+        # detect if the block is on the table/other block when having high measurement 
+        # uncertainties.
+        epsilon = 60./1000. 
 
         if is_epsilon_close(lower_face_pose_z, table_height, epsilon):
             # add new location position
@@ -240,6 +253,6 @@ def get_all_blocks_from_db():
 def add_init_knowledge():
     update_fact_hand_empty(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE)
     # add one extra location for temporary moving to that position
-    add_location('loc_temp', 0.6, 0.2) # TODO: set some good position for this temporary location
+    add_location('loc_temp', 0.1, 0.6) # TODO: set some good position for this temporary location
     update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'loc_temp')
 
