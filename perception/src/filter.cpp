@@ -53,7 +53,7 @@ class Filter
     ros::NodeHandle nh_;
     ros::Subscriber point_cloud_sub_;
     ros::ServiceServer service_;
-    ros::Timer timer;
+    //ros::Timer timer;
 
     ros::Publisher  input_pc_pub_;
     ros::Publisher  transformed_pc_pub_;
@@ -78,15 +78,18 @@ class Filter
     double outlier_remove_radius_;
     int    outlier_remove_min_neighb_;
 
-    Color red, blue, yellow, green;
+    Color red_, blue_, yellow_, green_;
 
-    pcl::visualization::PCLPlotter *plot1, *plot2, *plot3, *plot4;
+    pcl::visualization::PCLPlotter *plot1_, *plot2_, *plot3_, *plot4_;
 
-    sensor_msgs::PointCloud2 latest_sensor_msg;
-    boost::mutex latest_sensor_msg_lock;
+    sensor_msgs::PointCloud2 latest_sensor_msg_;
 
-    int count;
-    bool debug;
+    bool success_;
+    std::vector<perception::Block>* blocks_;
+    boost::mutex blocks_lock_;
+
+    int count_;
+    bool debug_;
 
     /*============================================================================*/
     /*===== load parameters ======================================================*/
@@ -114,36 +117,36 @@ class Filter
       std::vector<int> param_list;
       if( nh_.getParam("/filter/color_red", param_list))
       {
-        red.r = param_list[0];
-        red.g = param_list[1];
-        red.b = param_list[2];
+        red_.r = param_list[0];
+        red_.g = param_list[1];
+        red_.b = param_list[2];
       }
       else
         ok = false;
 
       if( nh_.getParam("/filter/color_blue", param_list))
       {
-        blue.r = param_list[0];
-        blue.g = param_list[1];
-        blue.b = param_list[2];
+        blue_.r = param_list[0];
+        blue_.g = param_list[1];
+        blue_.b = param_list[2];
       }
       else
         ok = false;
 
       if( nh_.getParam("/filter/color_green", param_list))
       {
-        green.r = param_list[0];
-        green.g = param_list[1];
-        green.b = param_list[2];
+        green_.r = param_list[0];
+        green_.g = param_list[1];
+        green_.b = param_list[2];
       }
       else
         ok = false;
 
       if( nh_.getParam("/filter/color_yellow", param_list))
       {
-        yellow.r = param_list[0];
-        yellow.g = param_list[1];
-        yellow.b = param_list[2];
+        yellow_.r = param_list[0];
+        yellow_.g = param_list[1];
+        yellow_.b = param_list[2];
       }
       else
         ok = false;
@@ -414,16 +417,16 @@ class Filter
     /*============================================================================*/
     int color_extraction(double r_mean, double g_mean, double b_mean)
     {
-      double red_dist = std::sqrt(  std::pow( r_mean - red.r, 2) +
-                                    std::pow( g_mean - red.g, 2) +
-                                    std::pow( b_mean - red.b, 2) );
+      double red_dist = std::sqrt(  std::pow( r_mean - red_.r, 2) +
+                                    std::pow( g_mean - red_.g, 2) +
+                                    std::pow( b_mean - red_.b, 2) );
       double min_dist = red_dist;
       int color = perception::Block::RED;
 
 
-      double blue_dist = std::sqrt( std::pow( r_mean - blue.r, 2) +
-                                    std::pow( g_mean - blue.g, 2) +
-                                    std::pow( b_mean - blue.b, 2) );
+      double blue_dist = std::sqrt( std::pow( r_mean - blue_.r, 2) +
+                                    std::pow( g_mean - blue_.g, 2) +
+                                    std::pow( b_mean - blue_.b, 2) );
 
       if( blue_dist < min_dist)
       {
@@ -431,9 +434,9 @@ class Filter
         color = perception::Block::BLUE;
       }
 
-      double green_dist = std::sqrt(  std::pow( r_mean - green.r, 2) +
-                                      std::pow( g_mean - green.g, 2) +
-                                      std::pow( b_mean - green.b, 2) );
+      double green_dist = std::sqrt(  std::pow( r_mean - green_.r, 2) +
+                                      std::pow( g_mean - green_.g, 2) +
+                                      std::pow( b_mean - green_.b, 2) );
 
       if( green_dist < min_dist)
       {
@@ -441,9 +444,9 @@ class Filter
         color = perception::Block::GREEN;
       }
 
-      double yellow_dist = std::sqrt( std::pow( r_mean - yellow.r, 2) +
-                                      std::pow( g_mean - yellow.g, 2) +
-                                      std::pow( b_mean - yellow.b, 2) );
+      double yellow_dist = std::sqrt( std::pow( r_mean - yellow_.r, 2) +
+                                      std::pow( g_mean - yellow_.g, 2) +
+                                      std::pow( b_mean - yellow_.b, 2) );
 
       if( yellow_dist < min_dist)
       {
@@ -451,7 +454,7 @@ class Filter
         color = perception::Block::YELLOW;
       }
 
-      ROS_INFO_STREAM( "FILTER: red_dist " << red_dist << " blue_dist " << blue_dist << " green_dist " << green_dist << " yellow_dist " << yellow_dist );
+      //ROS_INFO_STREAM( "FILTER: red_dist " << red_dist << " blue_dist " << blue_dist << " green_dist " << green_dist << " yellow_dist " << yellow_dist );
 
       return color;
     }
@@ -501,6 +504,7 @@ class Filter
         // extract position and orientation
         geometry_msgs::PoseStamped poseStamped;
         poseStamped.header.frame_id = GLOBAL_FRAME_ID;
+        poseStamped.header.stamp = ros::Time::now();
 
         poseStamped.pose.position.x = x_mean;
         poseStamped.pose.position.y = y_mean;
@@ -527,9 +531,8 @@ class Filter
     /*====== process the point cloud =============================================*/
     /*============================================================================*/
 
-    void process_latest_msg ( bool* success, std::vector<perception::Block>* blocks)
+    void process_latest_msg( bool *success,  std::vector<perception::Block>* blocks)
     {
-      sensor_msgs::PointCloud2 current_sensor_msg;
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud;
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr trimmed_cloud;
@@ -537,55 +540,42 @@ class Filter
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr output_cloud;
       std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters;
 
+      *success = false;
+
       // Load all parameters
       load_parameters();
 
-      //grap current sensor message
-      latest_sensor_msg_lock.lock();
-      current_sensor_msg = latest_sensor_msg;
-      latest_sensor_msg_lock.unlock();
-
       //handle debug mode with rosbag (timestamps wrong!)
-      if( debug)
-        current_sensor_msg.header.stamp = ros::Time::now() - ros::Duration(5);
+      if( debug_)
+        latest_sensor_msg_.header.stamp = ros::Time::now() - ros::Duration(5);
 
       //check if message is up to date
-      if( current_sensor_msg.header.frame_id.empty() ||
-          (ros::Time::now().toSec() - current_sensor_msg.header.stamp.toSec() ) > 200)
+      if( latest_sensor_msg_.header.frame_id.empty() ||
+          (ros::Time::now().toSec() - latest_sensor_msg_.header.stamp.toSec() ) > 200)
       {
         ROS_ERROR_STREAM("FILTER: No current camera data is available  " << ros::Time::now().toSec() << " - " <<
-                         current_sensor_msg.header.stamp.toSec() << " = " <<
-                         (ros::Time::now().toSec() - current_sensor_msg.header.stamp.toSec()));
-        *success = false;
+                          latest_sensor_msg_.header.stamp.toSec() << " = " <<
+                         (ros::Time::now().toSec() - latest_sensor_msg_.header.stamp.toSec()));
         return;
       }
 
       // convert msgs to point cloud
-      pcl::fromROSMsg( current_sensor_msg, *input_cloud);
+      pcl::fromROSMsg( latest_sensor_msg_, *input_cloud);
 
       // transform to baxter axis
       transformed_cloud = transform_to_baxters_axis( input_cloud);
       ROS_INFO_STREAM( "FILTER: \ntransformed_cloud: " << transformed_cloud->points.size() );
-      if (transformed_cloud->points.size() == 0){
-        *success = false;
-        return;
-      }
+      if (transformed_cloud->points.size() == 0)   return;
 
       // Limit points corresponding to table
       trimmed_cloud = limit_points_to_table( transformed_cloud);
       ROS_INFO_STREAM( "FILTER: trimmed_cloud: " << trimmed_cloud->points.size() );
-      if (trimmed_cloud->points.size() == 0){
-        *success = false;
-        return;
-      }
+      if (trimmed_cloud->points.size() == 0)  return;
 
       // remove table surface (planar model) from the cloud
       table_removed_cloud = plane_segmentation( trimmed_cloud);
       ROS_INFO_STREAM( "FILTER: table_removed_cloud: " << table_removed_cloud->points.size() );
-      if (table_removed_cloud->points.size() == 0){
-        *success = false;
-        return;
-      }
+      if (table_removed_cloud->points.size() == 0)   return;
 
       /*
       plot_color_distribution_rgb(table_removed_cloud);
@@ -600,10 +590,7 @@ class Filter
       // segmentation by color
       color_clusters = color_segmentation( table_removed_cloud);
       ROS_INFO_STREAM( "FILTER: color_segementation nr of clusters: " << color_clusters->size() );
-      if (color_clusters->size() == 0){
-        *success = false;
-        return;
-      }
+      if (color_clusters->size() == 0)   return;
 
       // extract object information
       object_extraction( color_clusters, success, blocks );
@@ -622,15 +609,26 @@ class Filter
     /*============================================================================*/
     void sensor_msg_callback (const sensor_msgs::PointCloud2ConstPtr& input)
     {
-      latest_sensor_msg_lock.lock();
-      latest_sensor_msg = *input;
-      latest_sensor_msg_lock.unlock();
+      int duration = 30;
+      count_ ++;
 
-      count ++;
+      if( debug_) duration = 100;
 
-      if(count >= 100) {
-        ROS_INFO_STREAM("sensor_msg_callback: \n" << latest_sensor_msg.header);
-        count = 0;
+      if(count_ >= duration) {
+        //ROS_INFO_STREAM("sensor_msg_callback: \n" << latest_sensor_msg.header);
+        bool success = false;
+        std::vector<perception::Block>* blocks = new std::vector<perception::Block>;
+
+        latest_sensor_msg_ = *input;
+        process_latest_msg( &success, blocks);
+
+        // store data for service call
+        blocks_lock_.lock();
+        success_ = success;
+        blocks_ = blocks;
+        blocks_lock_.unlock();
+
+        count_ = 0;
       }
     }
 
@@ -639,18 +637,15 @@ class Filter
     {
       ROS_INFO_STREAM( "FILTER: requested get scene service" );
 
-      //define output variables
-      bool success = false;
-      std::vector<perception::Block>* blocks = new std::vector<perception::Block>;
+      //grab latest result
+      blocks_lock_.lock();
+      res.success = success_;
+      res.blocks = *blocks_;
+      blocks_lock_.unlock();
 
-      //process latest sensor message
-      process_latest_msg( &success, blocks);
+      //TODO check if data is not outdated (blocks timestamp)
 
-      //return output
-      res.success = success;
-      res.blocks = *blocks;
-
-      ROS_INFO_STREAM( "FILTER: sending back response " );
+      ROS_INFO_STREAM( "FILTER: sending back response \n");// << res.blocks);
       return true;
     }
 
@@ -658,7 +653,6 @@ class Filter
     {
       ROS_INFO_STREAM( "FILTER: periodical request from timer" );
 
-      //define output variables
       bool success = false;
       std::vector<perception::Block>* blocks = new std::vector<perception::Block>;
 
@@ -683,12 +677,12 @@ class Filter
         b.push_back( cloud->points.at(i).b);
       }
 
-      plot1->clearPlots();
-      plot1->addHistogramData(r, 255, "red", std::vector<char>{-127,0,0,-127});
-      plot1->addHistogramData(g, 255, "green", std::vector<char>{0,-127,0,-127});
-      plot1->addHistogramData(b, 255, "blue", std::vector<char>{0,0,-127,-127});
-      plot1->setShowLegend(true);
-      plot1->plot();
+      plot1_->clearPlots();
+      plot1_->addHistogramData(r, 255, "red", std::vector<char>{-127,0,0,-127});
+      plot1_->addHistogramData(g, 255, "green", std::vector<char>{0,-127,0,-127});
+      plot1_->addHistogramData(b, 255, "blue", std::vector<char>{0,0,-127,-127});
+      plot1_->setShowLegend(true);
+      plot1_->plot();
     }
 
     void plot_color_distribution_hsv( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud)
@@ -705,20 +699,20 @@ class Filter
         v.push_back( cloud->points.at(i).v);
       }
 
-      plot1->clearPlots();
-      plot1->addHistogramData(h, 255, "hue", std::vector<char>{127,0,0,127});
-      plot1->setShowLegend(true);
-      plot1->plot();
+      plot1_->clearPlots();
+      plot1_->addHistogramData(h, 255, "hue", std::vector<char>{127,0,0,127});
+      plot1_->setShowLegend(true);
+      plot1_->plot();
 
-      plot2->clearPlots();
-      plot2->addHistogramData(s, 255, "saturation", std::vector<char>{0,127,0,127});
-      plot2->setShowLegend(true);
-      plot2->plot();
+      plot2_->clearPlots();
+      plot2_->addHistogramData(s, 255, "saturation", std::vector<char>{0,127,0,127});
+      plot2_->setShowLegend(true);
+      plot2_->plot();
 
-      plot3->clearPlots();
-      plot3->addHistogramData(v, 255, "value", std::vector<char>{0,0,127,127});
-      plot3->setShowLegend(true);
-      plot3->plot();
+      plot3_->clearPlots();
+      plot3_->addHistogramData(v, 255, "value", std::vector<char>{0,0,127,127});
+      plot3_->setShowLegend(true);
+      plot3_->plot();
     }
 
     void plot_x_distribution( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
@@ -733,10 +727,10 @@ class Filter
         x.push_back( cloud->points.at(i).x);
       }
 
-      plot2->clearPlots();
-      plot2->addHistogramData(x, 100, "x");
-      plot2->setShowLegend(true);
-      plot2->plot();
+      plot2_->clearPlots();
+      plot2_->addHistogramData(x, 100, "x");
+      plot2_->setShowLegend(true);
+      plot2_->plot();
     }
 
     void plot_y_distribution( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
@@ -751,10 +745,10 @@ class Filter
         y.push_back( cloud->points.at(i).y);
       }
 
-      plot3->clearPlots();
-      plot3->addHistogramData(y, 100, "y");
-      plot3->setShowLegend(true);
-      plot3->plot();
+      plot3_->clearPlots();
+      plot3_->addHistogramData(y, 100, "y");
+      plot3_->setShowLegend(true);
+      plot3_->plot();
     }
 
     void plot_z_distribution( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
@@ -769,10 +763,10 @@ class Filter
         z.push_back( cloud->points.at(i).z);
       }
 
-      plot4->clearPlots();
-      plot4->addHistogramData(z, 100, "z");
-      plot4->setShowLegend(true);
-      plot4->plot();
+      plot4_->clearPlots();
+      plot4_->addHistogramData(z, 100, "z");
+      plot4_->setShowLegend(true);
+      plot4_->plot();
     }
 
 public:
@@ -795,16 +789,16 @@ public:
       if( !cmd.empty() && cmd == "debug")
       {
         ROS_INFO("FILTER: entering debug mode");
-        debug = true;
+        debug_ = true;
       }else
-        debug = false;
+        debug_ = false;
 
       // Create a ROS subscriber for the input point cloud and sleep for a second so the camera publishes good data
       point_cloud_sub_ = nh_.subscribe ("/camera/depth_registered/points", 1, &Filter::sensor_msg_callback, this);
       ros::Duration(1).sleep();
 
       // Create a timer to periodically process the latest scene
-      timer = nh_.createTimer(ros::Duration(3.0), &Filter::timer_callback, this);
+      //timer = nh_.createTimer(ros::Duration(3.0), &Filter::timer_callback, this);
 
       // advertise new ros service GetScene
       service_ = nh_.advertiseService("get_scene", &Filter::get_scene_callback, this);
@@ -817,10 +811,10 @@ public:
       table_removed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_table_removed", 1);
       filtered_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_output", 1);
 
-      plot1 = new pcl::visualization::PCLPlotter();
-      plot2 = new pcl::visualization::PCLPlotter();
-      plot3 = new pcl::visualization::PCLPlotter();
-      plot4 = new pcl::visualization::PCLPlotter();
+      plot1_ = new pcl::visualization::PCLPlotter();
+      plot2_ = new pcl::visualization::PCLPlotter();
+      plot3_ = new pcl::visualization::PCLPlotter();
+      plot4_ = new pcl::visualization::PCLPlotter();
       //ROS_INFO_STREAM( "FILTER: end constructor" );
     }
 };
