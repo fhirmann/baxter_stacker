@@ -34,6 +34,9 @@ rosrun perception filter
 5.) (optional) run rviz to visualize the different clouds - add a PointCloud2 and select the desired topic
 rosrun rviz rviz
 
+for debug function:
+call rosrun perception filter debug
+call rosbag play -l filename.bag 
 
 ====================================================================================================================
 FYI
