@@ -293,7 +293,6 @@ class Filter
 
       // set parameters
       kdtree->setInputCloud( cloud);
-
       clustering.setInputCloud( cloud);
       clustering.setSearchMethod( kdtree);
       clustering.setMinClusterSize( col_seg_min_cluster_size_);
