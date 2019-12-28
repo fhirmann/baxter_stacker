@@ -35,8 +35,9 @@ rosrun perception filter
 rosrun rviz rviz
 
 for debug function:
-call rosrun perception filter debug
-call rosbag play -l filename.bag 
+rosrun perception filter debug
+rosbag play -d 0.5 --pause -l src/kmr19/perception/data_world_frame/2019-12-17-17-22-33.bag 
+
 
 ====================================================================================================================
 FYI

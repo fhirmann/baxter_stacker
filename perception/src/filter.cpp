@@ -32,7 +32,7 @@
 #include "perception/Block.h"
 
 #define GLOBAL_FRAME_ID "/world"
-#define CAMERA_FRAME_ID "/camera_link"
+#define CAMERA_FRAME_ID "/camera_rgb_optical_frame"
 
 struct Color
 {
@@ -59,7 +59,11 @@ class Filter
     ros::Publisher  transformed_pc_pub_;
     ros::Publisher  trimmed_pc_pub_;
     ros::Publisher  table_removed_pc_pub_;
-    ros::Publisher  filtered_pc_pub_;
+    ros::Publisher  block1_pc_pub_;
+    ros::Publisher  block2_pc_pub_;
+    ros::Publisher  block3_pc_pub_;
+    ros::Publisher  block4_pc_pub_;
+
 
     tf::TransformListener tf_listener_;
 
@@ -163,15 +167,19 @@ class Filter
     /*============================================================================*/
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr transform_to_baxters_axis( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
     {
+      int ret = 0;
 
       //output cloud initialization
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_transformed(new pcl::PointCloud<pcl::PointXYZRGB>);
 
-      ros::Time time_st = ros::Time(0);
-      tf_listener_.waitForTransform( GLOBAL_FRAME_ID, cloud->header.frame_id, time_st, ros::Duration(1.0));
-
       //  if it could not convert into baxters frame return error
-      if(!pcl_ros::transformPointCloud( GLOBAL_FRAME_ID, *cloud, *cloud_transformed, tf_listener_))
+      ros::Time time_st;
+      pcl_conversions::fromPCL( cloud->header.stamp, time_st);
+      tf_listener_.waitForTransform( GLOBAL_FRAME_ID, cloud->header.frame_id, time_st, ros::Duration(3.0));
+
+      ret = pcl_ros::transformPointCloud( GLOBAL_FRAME_ID, *cloud, *cloud_transformed, tf_listener_);
+      //ROS_ERROR_STREAM("Return val: " << ret << " now " << time_st << " header " << cloud->header.stamp);
+      if( !ret )
       {
         ROS_ERROR("Error converting to desired frame");
         return cloud_transformed;
@@ -547,7 +555,7 @@ class Filter
 
       //handle debug mode with rosbag (timestamps wrong!)
       if( debug_)
-        latest_sensor_msg_.header.stamp = ros::Time::now() - ros::Duration(5);
+        latest_sensor_msg_.header.stamp = ros::Time::now();
 
       //check if message is up to date
       if( latest_sensor_msg_.header.frame_id.empty() ||
@@ -561,21 +569,25 @@ class Filter
 
       // convert msgs to point cloud
       pcl::fromROSMsg( latest_sensor_msg_, *input_cloud);
+      input_pc_pub_.publish( *input_cloud);
 
       // transform to baxter axis
       transformed_cloud = transform_to_baxters_axis( input_cloud);
       ROS_INFO_STREAM( "FILTER: \ntransformed_cloud: " << transformed_cloud->points.size() );
       if (transformed_cloud->points.size() == 0)   return;
+      transformed_pc_pub_.publish( *transformed_cloud);
 
       // Limit points corresponding to table
       trimmed_cloud = limit_points_to_table( transformed_cloud);
       ROS_INFO_STREAM( "FILTER: trimmed_cloud: " << trimmed_cloud->points.size() );
       if (trimmed_cloud->points.size() == 0)  return;
+      trimmed_pc_pub_.publish( *trimmed_cloud);
 
       // remove table surface (planar model) from the cloud
       table_removed_cloud = plane_segmentation( trimmed_cloud);
       ROS_INFO_STREAM( "FILTER: table_removed_cloud: " << table_removed_cloud->points.size() );
       if (table_removed_cloud->points.size() == 0)   return;
+      table_removed_pc_pub_.publish( *table_removed_cloud);
 
       /*
       plot_color_distribution_rgb(table_removed_cloud);
@@ -590,17 +602,21 @@ class Filter
       // segmentation by color
       color_clusters = color_segmentation( table_removed_cloud);
       ROS_INFO_STREAM( "FILTER: color_segementation nr of clusters: " << color_clusters->size() );
-      if (color_clusters->size() == 0)   return;
+      if (color_clusters->size() == 0)
+        return;
+      if( color_clusters->size() >= 1)
+        block1_pc_pub_.publish( color_clusters->at(0));
+      if( color_clusters->size() >= 2)
+        block2_pc_pub_.publish( color_clusters->at(1));
+      if( color_clusters->size() >= 3)
+        block3_pc_pub_.publish( color_clusters->at(2));
+      if( color_clusters->size() >= 4)
+        block4_pc_pub_.publish( color_clusters->at(3));
+
 
       // extract object information
       object_extraction( color_clusters, success, blocks );
 
-      // Publish the data.
-      input_pc_pub_.publish( *input_cloud);
-      transformed_pc_pub_.publish( *transformed_cloud);
-      trimmed_pc_pub_.publish( *trimmed_cloud);
-      table_removed_pc_pub_.publish( *table_removed_cloud);
-      filtered_pc_pub_.publish( color_clusters->at(0));
     }
 
 
@@ -612,7 +628,7 @@ class Filter
       int duration = 30;
       count_ ++;
 
-      if( debug_) duration = 100;
+      if( debug_) duration = 1;//00;
 
       if(count_ >= duration) {
         //ROS_INFO_STREAM("sensor_msg_callback: \n" << latest_sensor_msg.header);
@@ -793,9 +809,13 @@ public:
       }else
         debug_ = false;
 
+      // Get the transform listener before the first sensor message can arrive to avoid extrapolation into the past error
+      tf_listener_.waitForTransform( GLOBAL_FRAME_ID, CAMERA_FRAME_ID, ros::Time::now(), ros::Duration(3.0));
+      ros::Duration(0.25).sleep();
+
       // Create a ROS subscriber for the input point cloud and sleep for a second so the camera publishes good data
       point_cloud_sub_ = nh_.subscribe ("/camera/depth_registered/points", 1, &Filter::sensor_msg_callback, this);
-      ros::Duration(1).sleep();
+      ros::Duration(0.75).sleep();
 
       // Create a timer to periodically process the latest scene
       //timer = nh_.createTimer(ros::Duration(3.0), &Filter::timer_callback, this);
@@ -809,7 +829,10 @@ public:
       transformed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_transformed", 1);
       trimmed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_trimmed", 1);
       table_removed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_table_removed", 1);
-      filtered_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_output", 1);
+      block1_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block1", 1);
+      block2_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block2", 1);
+      block3_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block3", 1);
+      block4_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block4", 1);
 
       plot1_ = new pcl::visualization::PCLPlotter();
       plot2_ = new pcl::visualization::PCLPlotter();

@@ -2,8 +2,8 @@ filter/table_x_low :  0.44
 filter/table_x_high:  1.24
 filter/table_y_low : -0.5
 filter/table_y_high:  0.5
-filter/table_z_low : -0.25
-filter/table_z_high: -0.135
+filter/table_z_low : -0.24
+filter/table_z_high: 0.1
 filter/plane_seg_threshold: 0.04
 filter/plane_seg_max_iterations: 500
 filter/col_seg_min_cluster_size: 100
