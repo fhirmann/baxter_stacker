@@ -53,7 +53,7 @@ class Filter
     ros::NodeHandle nh_;
     ros::Subscriber point_cloud_sub_;
     ros::ServiceServer service_;
-    //ros::Timer timer;
+    ros::Timer timer_;
 
     ros::Publisher  input_pc_pub_;
     ros::Publisher  transformed_pc_pub_;
@@ -64,6 +64,11 @@ class Filter
     ros::Publisher  block3_pc_pub_;
     ros::Publisher  block4_pc_pub_;
 
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud_;
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr trimmed_cloud_;
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr table_removed_cloud_;
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr output_cloud_;
+    std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters_;
 
     tf::TransformListener tf_listener_;
 
@@ -542,11 +547,6 @@ class Filter
     void process_latest_msg( bool *success,  std::vector<perception::Block>* blocks)
     {
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
-      pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud;
-      pcl::PointCloud<pcl::PointXYZRGB>::Ptr trimmed_cloud;
-      pcl::PointCloud<pcl::PointXYZRGB>::Ptr table_removed_cloud;
-      pcl::PointCloud<pcl::PointXYZRGB>::Ptr output_cloud;
-      std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters;
 
       *success = false;
 
@@ -572,22 +572,19 @@ class Filter
       input_pc_pub_.publish( *input_cloud);
 
       // transform to baxter axis
-      transformed_cloud = transform_to_baxters_axis( input_cloud);
-      ROS_INFO_STREAM( "FILTER: \ntransformed_cloud: " << transformed_cloud->points.size() );
-      if (transformed_cloud->points.size() == 0)   return;
-      transformed_pc_pub_.publish( *transformed_cloud);
+      transformed_cloud_ = transform_to_baxters_axis( input_cloud);
+      ROS_INFO_STREAM( "FILTER: \ntransformed_cloud: " << transformed_cloud_->points.size() );
+      if (transformed_cloud_->points.size() == 0)   return;
 
       // Limit points corresponding to table
-      trimmed_cloud = limit_points_to_table( transformed_cloud);
-      ROS_INFO_STREAM( "FILTER: trimmed_cloud: " << trimmed_cloud->points.size() );
-      if (trimmed_cloud->points.size() == 0)  return;
-      trimmed_pc_pub_.publish( *trimmed_cloud);
+      trimmed_cloud_ = limit_points_to_table( transformed_cloud_);
+      ROS_INFO_STREAM( "FILTER: trimmed_cloud: " << trimmed_cloud_->points.size() );
+      if (trimmed_cloud_->points.size() == 0)  return;
 
       // remove table surface (planar model) from the cloud
-      table_removed_cloud = plane_segmentation( trimmed_cloud);
-      ROS_INFO_STREAM( "FILTER: table_removed_cloud: " << table_removed_cloud->points.size() );
-      if (table_removed_cloud->points.size() == 0)   return;
-      table_removed_pc_pub_.publish( *table_removed_cloud);
+      table_removed_cloud_ = plane_segmentation( trimmed_cloud_);
+      ROS_INFO_STREAM( "FILTER: table_removed_cloud: " << table_removed_cloud_->points.size() );
+      if (table_removed_cloud_->points.size() == 0)   return;
 
       /*
       plot_color_distribution_rgb(table_removed_cloud);
@@ -600,23 +597,13 @@ class Filter
       plot_color_distribution_hsv(hsv_cloud);*/
 
       // segmentation by color
-      color_clusters = color_segmentation( table_removed_cloud);
-      ROS_INFO_STREAM( "FILTER: color_segementation nr of clusters: " << color_clusters->size() );
-      if (color_clusters->size() == 0)
+      color_clusters_ = color_segmentation( table_removed_cloud_);
+      ROS_INFO_STREAM( "FILTER: color_segementation nr of clusters: " << color_clusters_->size() );
+      if (color_clusters_->size() == 0)
         return;
-      if( color_clusters->size() >= 1)
-        block1_pc_pub_.publish( color_clusters->at(0));
-      if( color_clusters->size() >= 2)
-        block2_pc_pub_.publish( color_clusters->at(1));
-      if( color_clusters->size() >= 3)
-        block3_pc_pub_.publish( color_clusters->at(2));
-      if( color_clusters->size() >= 4)
-        block4_pc_pub_.publish( color_clusters->at(3));
-
 
       // extract object information
-      object_extraction( color_clusters, success, blocks );
-
+      object_extraction( color_clusters_, success, blocks );
     }
 
 
@@ -667,13 +654,29 @@ class Filter
 
     void timer_callback(const ros::TimerEvent& event)
     {
-      ROS_INFO_STREAM( "FILTER: periodical request from timer" );
+      /*ROS_INFO_STREAM( "FILTER: periodical request from timer" );
 
       bool success = false;
       std::vector<perception::Block>* blocks = new std::vector<perception::Block>;
 
       //process latest sensor message
-      process_latest_msg( &success, blocks);
+      process_latest_msg( &success, blocks);*/
+
+      if( transformed_cloud_ ) {
+        transformed_pc_pub_.publish(*transformed_cloud_);
+        trimmed_pc_pub_.publish(*trimmed_cloud_);
+        table_removed_pc_pub_.publish(*table_removed_cloud_);
+
+        if (color_clusters_->size() >= 1)
+          block1_pc_pub_.publish(color_clusters_->at(0));
+        if (color_clusters_->size() >= 2)
+          block2_pc_pub_.publish(color_clusters_->at(1));
+        if (color_clusters_->size() >= 3)
+          block3_pc_pub_.publish(color_clusters_->at(2));
+        if (color_clusters_->size() >= 4)
+          block4_pc_pub_.publish(color_clusters_->at(3));
+
+      }
     }
 
     /*============================================================================*/
@@ -818,7 +821,7 @@ public:
       ros::Duration(0.75).sleep();
 
       // Create a timer to periodically process the latest scene
-      //timer = nh_.createTimer(ros::Duration(3.0), &Filter::timer_callback, this);
+      timer_ = nh_.createTimer(ros::Duration(0.5), &Filter::timer_callback, this);
 
       // advertise new ros service GetScene
       service_ = nh_.advertiseService("get_scene", &Filter::get_scene_callback, this);
