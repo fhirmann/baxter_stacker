@@ -14,9 +14,10 @@
 #include <pcl/filters/filter.h>
 #include <pcl/filters/radius_outlier_removal.h>
 
+#include <pcl/segmentation/conditional_euclidean_clustering.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
-#include <pcl/segmentation/region_growing_rgb.h>
+//#include <pcl/segmentation/region_growing_rgb.h>
 #include <pcl/search/kdtree.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/surface/mls.h>
@@ -42,6 +43,28 @@ struct Color
   int b;
 };
 
+// If this function returns true, the candidate point will be added
+// to the cluster of the seed point.
+bool colorCondition(const pcl::PointXYZHSV& seedPoint, const pcl::PointXYZHSV& candidatePoint, float squaredDistance)
+{
+  // Do whatever you want here.
+  //ROS_INFO_STREAM( "Seed h = " << seedPoint.h << " candidate h = " << candidatePoint.h);
+  /*if ( std::abs(candidatePoint.h - seedPoint.h) > 25)
+    return false;*/
+
+  return true;
+}
+
+bool colorConditionRGB(const pcl::PointXYZRGB& seedPoint, const pcl::PointXYZRGB& candidatePoint, float squaredDistance)
+{
+  // Do whatever you want here.
+  //ROS_INFO_STREAM( "Seed h = " << seedPoint.h << " candidate h = " << candidatePoint.h);
+  /*if ( std::abs(candidatePoint.h - seedPoint.h) > 25)
+    return false;*/
+
+  return true;
+}
+
 /*============================================================================*/
 /*==== Transform point cloud to baxter base  =================================*/
 /*============================================================================*/
@@ -61,17 +84,20 @@ class Filter
     ros::Publisher  smoothed_pc_pub_;
     ros::Publisher  trimmed_pc_pub_;
     ros::Publisher  table_removed_pc_pub_;
+    ros::Publisher  hsv_pc_pub_;
     ros::Publisher  block1_pc_pub_;
     ros::Publisher  block2_pc_pub_;
     ros::Publisher  block3_pc_pub_;
     ros::Publisher  block4_pc_pub_;
+    ros::Publisher  block5_pc_pub_;
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud_;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr smoothed_cloud_;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr trimmed_cloud_;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr table_removed_cloud_;
+    pcl::PointCloud<pcl::PointXYZHSV>::Ptr hsv_cloud_;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr output_cloud_;
-    std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters_;
+    std::vector< pcl::PointCloud<pcl::PointXYZHSV>::Ptr >* color_clusters_;
 
     tf::TransformListener tf_listener_;
 
@@ -85,16 +111,20 @@ class Filter
     int    plane_seg_max_iterations_;
 
     int    col_seg_min_cluster_size_;
+    int    col_seg_max_cluster_size_;
     double col_seg_dist_threshold_;
+
     int    col_seg_point_col_threshold_;
     int    col_seg_region_col_threshold_;
+
+
 
     double outlier_remove_radius_;
     int    outlier_remove_min_neighb_;
 
     Color red_, blue_, yellow_, green_;
 
-    pcl::visualization::PCLPlotter *plot1_, *plot2_, *plot3_, *plot4_;
+    pcl::visualization::PCLPlotter *plot1_, *plot2_, *plot3_, *plot4_, *plot5_, *plot6_;
 
     sensor_msgs::PointCloud2 latest_sensor_msg_;
 
@@ -123,9 +153,12 @@ class Filter
       if(!nh_.getParam("/filter/plane_seg_threshold", plane_seg_threshold_))  ok = false;
       if(!nh_.getParam("/filter/plane_seg_max_iterations",  plane_seg_max_iterations_)) ok = false;
       if(!nh_.getParam("/filter/col_seg_min_cluster_size",  col_seg_min_cluster_size_)) ok = false;
+      if(!nh_.getParam("/filter/col_seg_max_cluster_size",  col_seg_max_cluster_size_)) ok = false;
       if(!nh_.getParam("/filter/col_seg_dist_threshold",  col_seg_dist_threshold_)) ok = false;
+
       if(!nh_.getParam("/filter/col_seg_point_col_threshold",  col_seg_point_col_threshold_)) ok = false;
       if(!nh_.getParam("/filter/col_seg_region_col_threshold",  col_seg_region_col_threshold_)) ok = false;
+
       if(!nh_.getParam("/filter/outlier_remove_radius",  outlier_remove_radius_)) ok = false;
       if(!nh_.getParam("/filter/outlier_remove_min_neighb",  outlier_remove_min_neighb_)) ok = false;
 
@@ -309,11 +342,64 @@ class Filter
     /*============================================================================*/
     /*===== segmentation of the cloud by color clustering ========================*/
     /*============================================================================*/
-    std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_segmentation(
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+    pcl::PointCloud< pcl::PointXYZHSV>::Ptr rgb_to_hsv( pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud)
+    {
+      pcl::PointCloud<pcl::PointXYZHSV>::Ptr hsv_cloud (new pcl::PointCloud<pcl::PointXYZHSV>());
+      pcl::PointCloudXYZRGBtoXYZHSV(*input_cloud, *hsv_cloud); // converts the rgb value to the hsv value -> misses to copy all the other informations
+
+      hsv_cloud->header = input_cloud->header;
+      for( int i = 0; i < input_cloud->points.size(); i++)
+      {
+        hsv_cloud->points.at(i).x = input_cloud->points.at(i).x;
+        hsv_cloud->points.at(i).y = input_cloud->points.at(i).y;
+        hsv_cloud->points.at(i).z = input_cloud->points.at(i).z;
+      }
+
+      hsv_cloud->width                = input_cloud->width;
+      hsv_cloud->height               = input_cloud->height;
+      hsv_cloud->is_dense             = input_cloud->is_dense;
+      hsv_cloud->sensor_origin_       = input_cloud->sensor_origin_ ;
+      hsv_cloud->sensor_orientation_  = input_cloud->sensor_orientation_ ;
+
+      //ROS_INFO_STREAM(" RGB size " << input_cloud->points.size() << " HSV size " << hsv_cloud->points.size());
+      /*ROS_INFO_STREAM(" RGB to HSV point 0 -  x " << input_cloud->points.at(0).x << " = " << hsv_cloud->points.at(0).x <<
+                                                  " y " << input_cloud->points.at(0).y << " = " << hsv_cloud->points.at(0).y <<
+                                                  " z " << input_cloud->points.at(0).z << " = " << hsv_cloud->points.at(0).z <<
+                                                  " r " << input_cloud->points.at(0).r << " h " << hsv_cloud->points.at(0).h );*/
+
+      return hsv_cloud;
+    }
+
+    pcl::PointCloud< pcl::PointXYZRGB>::Ptr hsv_to_rgb( pcl::PointCloud<pcl::PointXYZHSV>::Ptr input_cloud)
+    {
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr rgb_cloud (new pcl::PointCloud<pcl::PointXYZRGB>());
+
+      rgb_cloud->header = input_cloud->header;
+
+      for( int i = 0; i < input_cloud->points.size(); i++)
+      {
+        pcl::PointXYZRGB rgb_point;
+        pcl::PointXYZHSVtoXYZRGB( input_cloud->points.at(i), rgb_point);
+
+        rgb_cloud->points.push_back( rgb_point);
+      }
+
+      rgb_cloud->width                = input_cloud->width;
+      rgb_cloud->height               = input_cloud->height;
+      rgb_cloud->is_dense             = input_cloud->is_dense;
+      rgb_cloud->sensor_origin_       = input_cloud->sensor_origin_ ;
+      rgb_cloud->sensor_orientation_  = input_cloud->sensor_orientation_ ;
+
+      //ROS_INFO_STREAM(" hsv_to_rgb header " << rgb_cloud->header);
+
+      return rgb_cloud;
+    }
+
+    std::vector< pcl::PointCloud<pcl::PointXYZHSV>::Ptr >* color_segmentation(
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud)
     {
       // return a vector of point cloud pointers. Each pc includes points of one colored cluster
-
+/*
       // kd-tree object for searches. Color-based region growing clustering object.
       pcl::search::KdTree<pcl::PointXYZRGB>::Ptr kdtree( new pcl::search::KdTree<pcl::PointXYZRGB>);
       pcl::RegionGrowingRGB<pcl::PointXYZRGB> clustering;
@@ -365,9 +451,70 @@ class Filter
 
         // ROS_INFO_STREAM( "FILTER: Cluster " << currentClusterNum << " has " << cluster_filtered->points.size() << " points" );
         currentClusterNum++;
+      }*/
+     /* std::vector <pcl::PointIndices> clusters_rgb;
+      std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* cloud_clusters_rgb( new std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >);
+
+      // Conditional Euclidean clustering object.
+      pcl::ConditionalEuclideanClustering<pcl::PointXYZRGB> clustering_rgb;
+      //pcl::EuclideanClusterExtraction< pcl::PointXYZRGB> clustering_rgb;
+      // kd-tree object for searches.
+      //pcl::search::KdTree<pcl::PointXYZRGB>::Ptr kdtree_rgb(new pcl::search::KdTree<pcl::PointXYZRGB>);
+      //kdtree_rgb->setInputCloud( input_cloud);
+
+      clustering_rgb.setInputCloud( input_cloud);
+      clustering_rgb.setClusterTolerance( col_seg_dist_threshold_);
+      clustering_rgb.setMinClusterSize(   col_seg_min_cluster_size_);
+      clustering_rgb.setMaxClusterSize(   col_seg_max_cluster_size_);
+      //clustering_rgb.setSearchMethod( kdtree_rgb);
+      clustering_rgb.setConditionFunction( &colorConditionRGB);
+
+      clustering_rgb.segment( clusters_rgb);
+      //clustering_rgb.extract( clusters_rgb);*/
+
+/////////////////////// HSV /////////////////////////////////////////////////////////////////////////////////////////////
+
+
+      hsv_cloud_ = rgb_to_hsv( input_cloud);
+
+      std::vector <pcl::PointIndices> clusters_hsv;
+      std::vector< pcl::PointCloud<pcl::PointXYZHSV>::Ptr >* cloud_clusters_hsv( new std::vector< pcl::PointCloud<pcl::PointXYZHSV>::Ptr >);
+
+      // Conditional Euclidean clustering object.
+      pcl::ConditionalEuclideanClustering<pcl::PointXYZHSV> clustering_hsv;
+
+      clustering_hsv.setInputCloud( hsv_cloud_);
+      clustering_hsv.setClusterTolerance( col_seg_dist_threshold_);
+      clustering_hsv.setMinClusterSize(   col_seg_min_cluster_size_);
+      clustering_hsv.setMaxClusterSize(   col_seg_max_cluster_size_);
+      clustering_hsv.setConditionFunction( &colorCondition);
+
+      clustering_hsv.segment( clusters_hsv);
+
+      // For every cluster...
+      int currentClusterNum = 1;
+      for (std::vector<pcl::PointIndices>::const_iterator i = clusters_hsv.begin(); i != clusters_hsv.end(); ++i)
+      {
+        // ...add all its points to a new cloud...
+        pcl::PointCloud<pcl::PointXYZHSV>::Ptr cluster( new pcl::PointCloud<pcl::PointXYZHSV>);
+
+        for (std::vector<int>::const_iterator point = i->indices.begin(); point != i->indices.end(); point++)
+          cluster->points.push_back( hsv_cloud_->points[*point]);
+
+        cluster->header   = hsv_cloud_->header;
+        cluster->width    = cluster->points.size();
+        cluster->height   = 1;
+        cluster->is_dense = true;
+
+        // ...and add it to the return vector
+        cloud_clusters_hsv->push_back( cluster);
+
+        ROS_INFO_STREAM( " cluster nr. " << currentClusterNum << " size " << cluster->points.size());
+
+        currentClusterNum++;
       }
 
-      return cloud_clusters;
+      return cloud_clusters_hsv;
     }
 
     /*============================================================================*/
@@ -574,6 +721,7 @@ class Filter
 
     void process_latest_msg( bool *success,  std::vector<perception::Block>* blocks)
     {
+      ROS_INFO_STREAM( " \nprocess latest msg\n\n");
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
 
       *success = false;
@@ -601,7 +749,7 @@ class Filter
 
       // transform to baxter axis
       transformed_cloud_ = transform_to_baxters_axis( input_cloud);
-      ROS_INFO_STREAM( "FILTER: \ntransformed_cloud: " << transformed_cloud_->points.size() );
+      ROS_INFO_STREAM( "FILTER: transformed_cloud: " << transformed_cloud_->points.size() );
       if (transformed_cloud_->points.size() == 0)   return;
 
       // Limit points corresponding to table
@@ -611,7 +759,7 @@ class Filter
 
       // surface smoothing
       smoothed_cloud_ = smooth_surfaces( trimmed_cloud_);
-      ROS_INFO_STREAM( "FILTER: \nsmoothed_cloud: " << smoothed_cloud_->points.size() );
+      ROS_INFO_STREAM( "FILTER: smoothed_cloud: " << smoothed_cloud_->points.size() );
       if (smoothed_cloud_->points.size() == 0)   return;
 
       // remove table surface (planar model) from the cloud
@@ -619,15 +767,16 @@ class Filter
       ROS_INFO_STREAM( "FILTER: table_removed_cloud: " << table_removed_cloud_->points.size() );
       if (table_removed_cloud_->points.size() == 0)   return;
 
-
-      //plot_color_distribution_rgb( table_removed_cloud_);
-      /*plot_x_distribution(table_removed_cloud);
+      /*plot_color_distribution_rgb( table_removed_cloud_);
+      plot_x_distribution(table_removed_cloud_);
       plot_y_distribution(table_removed_cloud);
-      plot_z_distribution(table_removed_cloud);*/
+      plot_z_distribution(table_removed_cloud);
+      plot_x_distribution( table_removed_cloud_);
+      plot_x_distribution_hsv( hsv_cloud_);*/
 
-      pcl::PointCloud<pcl::PointXYZHSV>::Ptr hsv_cloud (new pcl::PointCloud<pcl::PointXYZHSV>());
+      /*pcl::PointCloud<pcl::PointXYZHSV>::Ptr hsv_cloud (new pcl::PointCloud<pcl::PointXYZHSV>());
       pcl::PointCloudXYZRGBtoXYZHSV(*table_removed_cloud_, *hsv_cloud); // convert to hsv
-      plot_color_distribution_hsv(hsv_cloud);
+      plot_color_distribution_hsv(hsv_cloud);*/
 
       // segmentation by color
       color_clusters_ = color_segmentation( table_removed_cloud_);
@@ -636,7 +785,7 @@ class Filter
         return;
 
       // extract object information
-      object_extraction( color_clusters_, success, blocks );
+      //object_extraction( color_clusters_, success, blocks );
     }
 
 
@@ -701,15 +850,32 @@ class Filter
         trimmed_pc_pub_.publish(*trimmed_cloud_);
         table_removed_pc_pub_.publish(*table_removed_cloud_);
 
-        if (color_clusters_->size() >= 1)
-          block1_pc_pub_.publish(color_clusters_->at(0));
-        if (color_clusters_->size() >= 2)
-          block2_pc_pub_.publish(color_clusters_->at(1));
-        if (color_clusters_->size() >= 3)
-          block3_pc_pub_.publish(color_clusters_->at(2));
-        if (color_clusters_->size() >= 4)
-          block4_pc_pub_.publish(color_clusters_->at(3));
+        if(hsv_cloud_)
+          hsv_pc_pub_.publish(*hsv_cloud_);
 
+        //rviz can only display RGB points -> therefore transfer it back to rgb color space
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr rgb_cloud (new pcl::PointCloud<pcl::PointXYZRGB>());
+
+        if (color_clusters_->size() >= 1) {
+          rgb_cloud = hsv_to_rgb( color_clusters_->at(0));
+          block1_pc_pub_.publish(rgb_cloud);
+        }
+        if (color_clusters_->size() >= 2) {
+          rgb_cloud = hsv_to_rgb( color_clusters_->at(1));
+          block2_pc_pub_.publish(rgb_cloud);
+        }
+        if (color_clusters_->size() >= 3) {
+          rgb_cloud = hsv_to_rgb( color_clusters_->at(2));
+          block3_pc_pub_.publish(rgb_cloud);
+        }
+        if (color_clusters_->size() >= 4) {
+          rgb_cloud = hsv_to_rgb( color_clusters_->at(3));
+          block4_pc_pub_.publish(rgb_cloud);
+        }
+        if (color_clusters_->size() >= 5) {
+          rgb_cloud = hsv_to_rgb( color_clusters_->at(4));
+          block5_pc_pub_.publish(rgb_cloud);
+        }
       }
     }
 
@@ -731,11 +897,19 @@ class Filter
       }
 
       plot1_->clearPlots();
-      plot1_->addHistogramData(r, 255, "red", std::vector<char>{-127,0,0,-127});
-      plot1_->addHistogramData(g, 255, "green", std::vector<char>{0,-127,0,-127});
-      plot1_->addHistogramData(b, 255, "blue", std::vector<char>{0,0,-127,-127});
+      plot1_->addHistogramData(r, 255, "red");
       plot1_->setShowLegend(true);
       plot1_->plot();
+
+      plot2_->clearPlots();
+      plot2_->addHistogramData(g, 255, "green");
+      plot2_->setShowLegend(true);
+      plot2_->plot();
+
+      plot3_->clearPlots();
+      plot3_->addHistogramData(b, 255, "blue");
+      plot3_->setShowLegend(true);
+      plot3_->plot();
     }
 
     void plot_color_distribution_hsv( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud)
@@ -752,25 +926,24 @@ class Filter
         v.push_back( cloud->points.at(i).v);
       }
 
-      plot1_->clearPlots();
-      plot1_->addHistogramData(h, 255, "hue", std::vector<char>{127,0,0,127});
-      plot1_->setShowLegend(true);
-      plot1_->plot();
+      plot4_->clearPlots();
+      plot4_->addHistogramData(h, 255, "hue", std::vector<char>{127,0,0,127});
+      plot4_->setShowLegend(true);
+      plot4_->plot();
 
-      plot2_->clearPlots();
-      plot2_->addHistogramData(s, 255, "saturation", std::vector<char>{0,127,0,127});
-      plot2_->setShowLegend(true);
-      plot2_->plot();
+      plot5_->clearPlots();
+      plot5_->addHistogramData(s, 255, "saturation", std::vector<char>{0,127,0,127});
+      plot5_->setShowLegend(true);
+      plot5_->plot();
 
-      plot3_->clearPlots();
-      plot3_->addHistogramData(v, 255, "value", std::vector<char>{0,0,127,127});
-      plot3_->setShowLegend(true);
-      plot3_->plot();
+      plot6_->clearPlots();
+      plot6_->addHistogramData(v, 255, "value", std::vector<char>{0,0,127,127});
+      plot6_->setShowLegend(true);
+      plot6_->plot();
     }
 
     void plot_x_distribution( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
     {
-      // plot red distribution of points
       std::vector<double> x;
 
       int N = cloud->points.size();
@@ -781,9 +954,26 @@ class Filter
       }
 
       plot2_->clearPlots();
-      plot2_->addHistogramData(x, 100, "x");
+      plot2_->addHistogramData(x, 100, "x rgb");
       plot2_->setShowLegend(true);
       plot2_->plot();
+    }
+
+    void plot_x_distribution_hsv( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud)
+    {
+      std::vector<double> x;
+
+      int N = cloud->points.size();
+
+      for(int i = 0; i < N; i++)
+      {
+        x.push_back( cloud->points.at(i).x);
+      }
+
+      plot6_->clearPlots();
+      plot6_->addHistogramData(x, 100, "x hsv");
+      plot6_->setShowLegend(true);
+      plot6_->plot();
     }
 
     void plot_y_distribution( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
@@ -867,15 +1057,19 @@ public:
       smoothed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_smoothed", 1);
       trimmed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_trimmed", 1);
       table_removed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_table_removed", 1);
+      hsv_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZHSV>>("/filter_hsv", 1);
       block1_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block1", 1);
       block2_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block2", 1);
       block3_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block3", 1);
       block4_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block4", 1);
+      block5_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block5", 1);
 
       plot1_ = new pcl::visualization::PCLPlotter();
       plot2_ = new pcl::visualization::PCLPlotter();
       plot3_ = new pcl::visualization::PCLPlotter();
       plot4_ = new pcl::visualization::PCLPlotter();
+      plot5_ = new pcl::visualization::PCLPlotter();
+      plot6_ = new pcl::visualization::PCLPlotter();
       //ROS_INFO_STREAM( "FILTER: end constructor" );
     }
 };
