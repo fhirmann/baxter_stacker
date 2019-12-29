@@ -19,6 +19,7 @@
 #include <pcl/segmentation/region_growing_rgb.h>
 #include <pcl/search/kdtree.h>
 #include <pcl/filters/extract_indices.h>
+#include <pcl/surface/mls.h>
 
 #include <pcl_ros/point_cloud.h>
 
@@ -57,6 +58,7 @@ class Filter
 
     ros::Publisher  input_pc_pub_;
     ros::Publisher  transformed_pc_pub_;
+    ros::Publisher  smoothed_pc_pub_;
     ros::Publisher  trimmed_pc_pub_;
     ros::Publisher  table_removed_pc_pub_;
     ros::Publisher  block1_pc_pub_;
@@ -65,6 +67,7 @@ class Filter
     ros::Publisher  block4_pc_pub_;
 
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud_;
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr smoothed_cloud_;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr trimmed_cloud_;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr table_removed_cloud_;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr output_cloud_;
@@ -75,6 +78,8 @@ class Filter
     double table_x_low_, table_x_high_;
     double table_y_low_, table_y_high_;
     double table_z_low_, table_z_high_;
+
+    double smoothing_radius_;
 
     double plane_seg_threshold_;
     int    plane_seg_max_iterations_;
@@ -114,6 +119,7 @@ class Filter
       if(!nh_.getParam("/filter/table_y_high", table_y_high_))  ok = false;
       if(!nh_.getParam("/filter/table_z_low",  table_z_low_))   ok = false;
       if(!nh_.getParam("/filter/table_z_high", table_z_high_))  ok = false;
+      if(!nh_.getParam("/filter/smoothing_radius", smoothing_radius_))  ok = false;
       if(!nh_.getParam("/filter/plane_seg_threshold", plane_seg_threshold_))  ok = false;
       if(!nh_.getParam("/filter/plane_seg_max_iterations",  plane_seg_max_iterations_)) ok = false;
       if(!nh_.getParam("/filter/col_seg_min_cluster_size",  col_seg_min_cluster_size_)) ok = false;
@@ -190,12 +196,35 @@ class Filter
         return cloud_transformed;
       }
 
-      // remove nan values - leave this out if a organized pcl is needed in a later function
-      std::vector<int> mapping;
-      pcl::removeNaNFromPointCloud(*cloud_transformed, *cloud_transformed, mapping);
-
       // return the point cloud
       return cloud_transformed;
+    }
+
+    /*============================================================================*/
+    /*===== smooth the surfaces ==================================================*/
+    /*============================================================================*/
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr smooth_surfaces(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud)
+    {
+      // Object for storing the point cloud.
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr output_cloud(new pcl::PointCloud <pcl::PointXYZRGB>);
+
+      // remove nan values
+      std::vector<int> mapping;
+      pcl::removeNaNFromPointCloud(*input_cloud, *input_cloud, mapping);
+
+      // Smoothing object (we choose what point types we want as input and output).
+      pcl::MovingLeastSquares <pcl::PointXYZRGB, pcl::PointXYZRGB> filter;
+      pcl::search::KdTree<pcl::PointXYZRGB>::Ptr kdtree;
+
+      filter.setInputCloud(input_cloud);
+      filter.setSearchRadius(smoothing_radius_);
+      filter.setPolynomialFit(true);
+      filter.setSearchMethod(kdtree);
+
+      filter.process(*output_cloud);
+
+
+      return output_cloud;
     }
 
     /*============================================================================*/
@@ -580,20 +609,25 @@ class Filter
       ROS_INFO_STREAM( "FILTER: trimmed_cloud: " << trimmed_cloud_->points.size() );
       if (trimmed_cloud_->points.size() == 0)  return;
 
+      // surface smoothing
+      smoothed_cloud_ = smooth_surfaces( trimmed_cloud_);
+      ROS_INFO_STREAM( "FILTER: \nsmoothed_cloud: " << smoothed_cloud_->points.size() );
+      if (smoothed_cloud_->points.size() == 0)   return;
+
       // remove table surface (planar model) from the cloud
       table_removed_cloud_ = plane_segmentation( trimmed_cloud_);
       ROS_INFO_STREAM( "FILTER: table_removed_cloud: " << table_removed_cloud_->points.size() );
       if (table_removed_cloud_->points.size() == 0)   return;
 
-      /*
-      plot_color_distribution_rgb(table_removed_cloud);
-      plot_x_distribution(table_removed_cloud);
+
+      //plot_color_distribution_rgb( table_removed_cloud_);
+      /*plot_x_distribution(table_removed_cloud);
       plot_y_distribution(table_removed_cloud);
       plot_z_distribution(table_removed_cloud);*/
 
-      /*pcl::PointCloud<pcl::PointXYZHSV>::Ptr hsv_cloud (new pcl::PointCloud<pcl::PointXYZHSV>());
-      pcl::PointCloudXYZRGBtoXYZHSV(*table_removed_cloud, *hsv_cloud); // convert to hsv
-      plot_color_distribution_hsv(hsv_cloud);*/
+      pcl::PointCloud<pcl::PointXYZHSV>::Ptr hsv_cloud (new pcl::PointCloud<pcl::PointXYZHSV>());
+      pcl::PointCloudXYZRGBtoXYZHSV(*table_removed_cloud_, *hsv_cloud); // convert to hsv
+      plot_color_distribution_hsv(hsv_cloud);
 
       // segmentation by color
       color_clusters_ = color_segmentation( table_removed_cloud_);
@@ -663,6 +697,7 @@ class Filter
 
       if( transformed_cloud_ ) {
         transformed_pc_pub_.publish(*transformed_cloud_);
+        smoothed_pc_pub_.publish(*smoothed_cloud_);
         trimmed_pc_pub_.publish(*trimmed_cloud_);
         table_removed_pc_pub_.publish(*table_removed_cloud_);
 
@@ -829,6 +864,7 @@ public:
       // Create a ROS publisher for the output point cloud
       input_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_input", 1);
       transformed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_transformed", 1);
+      smoothed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_smoothed", 1);
       trimmed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_trimmed", 1);
       table_removed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_table_removed", 1);
       block1_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block1", 1);
