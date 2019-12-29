@@ -28,63 +28,42 @@ class kmr19ArmCtrl:
 
   def moveToInitPosition(self, arm='left'):
     if (arm == 'left'):
-      group = self.group
-      link = 'left_gripper'
+      group = self.group_l
 
-      #set target position
-      target_pose = group.get_current_pose(end_effector_link=link).pose
-
-      target_pose.position.x = 0.8
-      target_pose.position.y = 0.3
-      target_pose.position.z = 0.1
-      target_pose.orientation.x = 0
-      target_pose.orientation.y = 1
-      target_pose.orientation.z = 0
-      target_pose.orientation.w = 0
-
+      joint_goal = group.get_current_joint_values()
+      joint_goal[0] = 0
+      joint_goal[1] = -pi/4
+      joint_goal[2] = 0
+      joint_goal[3] = pi/2
+      joint_goal[4] = 0
+      joint_goal[5] = pi/4.5
+      joint_goal[6] = 0
     elif (arm == 'right'):
-      group = self.group
-      link = 'right_gripper'
+      group = self.group_r
 
-      #set target position
-      target_pose = group.get_current_pose(end_effector_link=link).pose
-     
-      target_pose.position.x = 0.8
-      target_pose.position.y = -0.3
-      target_pose.position.z = 0.1
-      target_pose.orientation.x = 0
-      target_pose.orientation.y = 1
-      target_pose.orientation.z = 0
-      target_pose.orientation.w = 0
+      joint_goal = group.get_current_joint_values()
+      joint_goal[0] = 0
+      joint_goal[1] = -pi/4
+      joint_goal[2] = 0
+      joint_goal[3] = pi/2
+      joint_goal[4] = 0
+      joint_goal[5] = pi/4.5
+      joint_goal[6] = 0
     else:
       print("[kmr19ArmCtrl moveToInitlPosition]: specify which arm should be initialized")
 
-    # set target pose in MoveIt Commander
-    group.set_pose_target(target_pose, end_effector_link=link)
-
-    success = False
-    for x in range(0, 4):
-      # plan motion
-      plan = self.group.plan()
-
-      #check if plan was made
-      if not plan.joint_trajectory.points:
-        print("[kmr19ArmCtrl moveToInitlPosition] [ERROR] No trajectory found, retry....")
-      else:
-        #execute plan
-        group.go(wait=True)
-        group.stop()
-        group.clear_pose_targets()
-        success = True
-        break
+    group.go(joint_goal, wait=True)
+    group.stop()
 
     return success
 
-  def planBlockPickup(self, block_pose, height_dif=0, arm='left', use_cartesian=False):
+  def planBlockPickup(self, block_pose, height_dif=0, arm='left', use_cartesian=False, use_constraint=False):
     '''
     :param block_pose: PoseStamped() of mid-point of block to pick up
     :param height_dif: height difference to block mid-point when closing gripper
     :param arm: defines which arm should be used
+    :param use_cartesian: cartesian path is planned
+    :param use_constraint: orientation constraint is set before planning starts
     :return: motion plan for pick up procedure, plan maybe not valid --> check somewhere else
     '''
 
@@ -104,6 +83,24 @@ class kmr19ArmCtrl:
     target_pose.orientation.y = 1
     target_pose.orientation.z = 0
     target_pose.orientation.w = 0
+
+    if use_constraint:
+      #generate constraints and orientation constraint object
+      constraints = Constraints()
+      ocm = OrientationConstraint()
+
+      #define orientation constraint
+      ocm.header.frame_id = "/world"
+      ocm.link_name = 'left_gripper'
+      ocm.orientation.y = 1.0
+      ocm.absolute_x_axis_tolerance = 0.05
+      ocm.absolute_y_axis_tolerance = 0.05
+      ocm.absolute_z_axis_tolerance = 0.05
+      ocm.weight = 1
+
+      #add constraint to planner
+      constraints.orientation_constraints.append(ocm)
+      group.set_path_constraints(constraints)
 
     if use_cartesian:
       #cartesian path waypoints
@@ -135,7 +132,7 @@ class kmr19ArmCtrl:
 
     return plan
 
-  def planBlockPutdown(self, goal_pose, height_dif=0, arm='left', use_cartesian=False):
+  def planBlockPutdown(self, goal_pose, height_dif=0, arm='left', use_cartesian=False, use_constraint=False):
     '''
        :param block_pose: PoseStamped() of mid-point of block to pick up
        :param height_dif: height difference to block mid-point when closing gripper
@@ -163,6 +160,24 @@ class kmr19ArmCtrl:
     target_pose.orientation.y = 1
     target_pose.orientation.z = 0
     target_pose.orientation.w = 0
+
+    if use_constraint:
+      #generate constraints and orientation constraint object
+      constraints = Constraints()
+      ocm = OrientationConstraint()
+
+      #define orientation constraint
+      ocm.header.frame_id = "/world"
+      ocm.link_name = 'left_gripper'
+      ocm.orientation.y = 1.0
+      ocm.absolute_x_axis_tolerance = 0.05
+      ocm.absolute_y_axis_tolerance = 0.05
+      ocm.absolute_z_axis_tolerance = 0.05
+      ocm.weight = 1
+
+      #add constraint to planner
+      constraints.orientation_constraints.append(ocm)
+      group.set_path_constraints(constraints)
 
     if use_cartesian:
       # cartesian path waypoints
