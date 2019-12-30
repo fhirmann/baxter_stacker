@@ -36,6 +36,8 @@
 #define GLOBAL_FRAME_ID "/world"
 #define CAMERA_FRAME_ID "/camera_rgb_optical_frame"
 
+#define UNKNOWN_COLOR 100
+
 struct Color
 {
   int r;
@@ -43,24 +45,45 @@ struct Color
   int b;
 };
 
+inline int getHueColor( double hue)
+{
+  double hue_red_   = 355;
+  double hue_blue_  = 220;
+  double hue_green_ = 85;
+  double hue_yellow_= 35;
+  double hue_tol_   = 20;
+
+  int color = UNKNOWN_COLOR;
+
+  if( hue < hue_tol_) hue += 360;
+
+  if( hue > (hue_red_ - hue_tol_) && hue < (hue_red_ + hue_tol_))
+    color = perception::Block::RED;
+
+  if( hue > (hue_blue_ - hue_tol_) && hue < (hue_blue_ + hue_tol_))
+    color = perception::Block::BLUE;
+
+  if( hue > (hue_green_ - hue_tol_) && hue < (hue_green_ + hue_tol_))
+    color = perception::Block::GREEN;
+
+  if( hue > (hue_yellow_ - hue_tol_) && hue < (hue_yellow_ + hue_tol_))
+    color = perception::Block::YELLOW;
+
+  return color;
+}
+
 // If this function returns true, the candidate point will be added
 // to the cluster of the seed point.
 bool colorCondition(const pcl::PointXYZHSV& seedPoint, const pcl::PointXYZHSV& candidatePoint, float squaredDistance)
 {
-  // Do whatever you want here.
-  //ROS_INFO_STREAM( "Seed h = " << seedPoint.h << " candidate h = " << candidatePoint.h);
-  /*if ( std::abs(candidatePoint.h - seedPoint.h) > 25)
-    return false;*/
 
-  return true;
-}
+  int seedColor = getHueColor( seedPoint.h);
+  int canditateColor = getHueColor( candidatePoint.h);
 
-bool colorConditionRGB(const pcl::PointXYZRGB& seedPoint, const pcl::PointXYZRGB& candidatePoint, float squaredDistance)
-{
   // Do whatever you want here.
-  //ROS_INFO_STREAM( "Seed h = " << seedPoint.h << " candidate h = " << candidatePoint.h);
-  /*if ( std::abs(candidatePoint.h - seedPoint.h) > 25)
-    return false;*/
+  //ROS_INFO_STREAM( "Seed h = " << seedPoint.h << " color " << seedColor << " candidate h = " << candidatePoint.h << " color " << canditateColor);
+  if ( seedColor == UNKNOWN_COLOR || seedColor != canditateColor)
+    return false;
 
   return true;
 }
@@ -118,9 +141,9 @@ class Filter
     int    col_seg_region_col_threshold_;
 
 
-
     double outlier_remove_radius_;
     int    outlier_remove_min_neighb_;
+
 
     Color red_, blue_, yellow_, green_;
 
@@ -399,82 +422,6 @@ class Filter
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud)
     {
       // return a vector of point cloud pointers. Each pc includes points of one colored cluster
-/*
-      // kd-tree object for searches. Color-based region growing clustering object.
-      pcl::search::KdTree<pcl::PointXYZRGB>::Ptr kdtree( new pcl::search::KdTree<pcl::PointXYZRGB>);
-      pcl::RegionGrowingRGB<pcl::PointXYZRGB> clustering;
-      std::vector <pcl::PointIndices> clusters;
-      std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* cloud_clusters( new std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >);
-
-      // set parameters
-      kdtree->setInputCloud( cloud);
-      clustering.setInputCloud( cloud);
-      clustering.setSearchMethod( kdtree);
-      clustering.setMinClusterSize( col_seg_min_cluster_size_);
-      clustering.setDistanceThreshold( col_seg_dist_threshold_);
-      clustering.setPointColorThreshold( col_seg_point_col_threshold_);
-      clustering.setRegionColorThreshold( col_seg_region_col_threshold_);
-
-      // extract clusters
-      clustering.extract( clusters);
-
-      // For every cluster...
-      pcl::RadiusOutlierRemoval<pcl::PointXYZRGB> filter;
-      filter.setRadiusSearch( outlier_remove_radius_);
-      filter.setMinNeighborsInRadius( outlier_remove_min_neighb_);
-
-      int currentClusterNum = 1;
-
-      for (std::vector<pcl::PointIndices>::const_iterator i = clusters.begin(); i != clusters.end(); ++i)
-      {
-        // ...add all its points to a new cloud...
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cluster( new pcl::PointCloud<pcl::PointXYZRGB>);
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cluster_filtered( new pcl::PointCloud<pcl::PointXYZRGB>);
-
-        for (std::vector<int>::const_iterator point = i->indices.begin(); point != i->indices.end(); point++)
-          cluster->points.push_back(cloud->points[*point]);
-
-        cluster->width = cluster->points.size();
-        cluster->height = 1;
-        cluster->is_dense = true;
-        cluster->header = cloud->header;
-
-        // ... remove all outliers of the cloud
-        if (cluster->points.size() <= 0)
-          break;
-
-        filter.setInputCloud( cluster);
-        filter.filter( *cluster_filtered);
-
-        // ...and add it to the return vector
-        cloud_clusters->push_back( cluster_filtered);
-
-        // ROS_INFO_STREAM( "FILTER: Cluster " << currentClusterNum << " has " << cluster_filtered->points.size() << " points" );
-        currentClusterNum++;
-      }*/
-     /* std::vector <pcl::PointIndices> clusters_rgb;
-      std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* cloud_clusters_rgb( new std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >);
-
-      // Conditional Euclidean clustering object.
-      pcl::ConditionalEuclideanClustering<pcl::PointXYZRGB> clustering_rgb;
-      //pcl::EuclideanClusterExtraction< pcl::PointXYZRGB> clustering_rgb;
-      // kd-tree object for searches.
-      //pcl::search::KdTree<pcl::PointXYZRGB>::Ptr kdtree_rgb(new pcl::search::KdTree<pcl::PointXYZRGB>);
-      //kdtree_rgb->setInputCloud( input_cloud);
-
-      clustering_rgb.setInputCloud( input_cloud);
-      clustering_rgb.setClusterTolerance( col_seg_dist_threshold_);
-      clustering_rgb.setMinClusterSize(   col_seg_min_cluster_size_);
-      clustering_rgb.setMaxClusterSize(   col_seg_max_cluster_size_);
-      //clustering_rgb.setSearchMethod( kdtree_rgb);
-      clustering_rgb.setConditionFunction( &colorConditionRGB);
-
-      clustering_rgb.segment( clusters_rgb);
-      //clustering_rgb.extract( clusters_rgb);*/
-
-/////////////////////// HSV /////////////////////////////////////////////////////////////////////////////////////////////
-
-
       hsv_cloud_ = rgb_to_hsv( input_cloud);
 
       std::vector <pcl::PointIndices> clusters_hsv;
@@ -509,7 +456,7 @@ class Filter
         // ...and add it to the return vector
         cloud_clusters_hsv->push_back( cluster);
 
-        ROS_INFO_STREAM( " cluster nr. " << currentClusterNum << " size " << cluster->points.size());
+        //ROS_INFO_STREAM( " cluster nr. " << currentClusterNum << " size " << cluster->points.size());
 
         currentClusterNum++;
       }
@@ -520,13 +467,11 @@ class Filter
     /*============================================================================*/
     /*====== extract position orientation and color of the objects ===============*/
     /*============================================================================*/
-    void cloud_statistics( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
+    void cloud_statistics( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud,
                            double* x_min, double* x_max, double* x_mean,
                            double* y_min, double* y_max, double* y_mean,
                            double* z_min, double* z_max, double* z_mean,
-                           int* r_min, int* r_max, double* r_mean,
-                           int* g_min, int* g_max, double* g_mean,
-                           int* b_min, int* b_max, double* b_mean)
+                           double* hue_min, double* hue_max, double* hue_mean)
     {
       int N = cloud->points.size();
 
@@ -542,17 +487,9 @@ class Filter
       *z_max = cloud->points.at(0).z;
       *z_mean = 0.0;
 
-      *r_min = cloud->points.at(0).r;
-      *r_max = cloud->points.at(0).r;
-      *r_mean = 0.0;
-
-      *g_min = cloud->points.at(0).g;
-      *g_max = cloud->points.at(0).g;
-      *g_mean = 0.0;
-
-      *b_min = cloud->points.at(0).b;
-      *b_max = cloud->points.at(0).b;
-      *b_mean = 0.0;
+      *hue_min = cloud->points.at(0).h;
+      *hue_max = cloud->points.at(0).h;
+      *hue_mean = 0.0;
 
       for(int j = 0; j < N; j++)
       {
@@ -568,25 +505,15 @@ class Filter
         *z_max = std::max( *z_max, (double)cloud->points.at(j).z);
         *z_mean += cloud->points.at(j).z;
 
-        *r_min = std::min( *r_min, (int)cloud->points.at(j).r);
-        *r_max = std::max( *r_max, (int)cloud->points.at(j).r);
-        *r_mean += cloud->points.at(j).r;
-
-        *g_min = std::min( *g_min, (int)cloud->points.at(j).g);
-        *g_max = std::max( *g_max, (int)cloud->points.at(j).g);
-        *g_mean += cloud->points.at(j).g;
-
-        *b_min = std::min( *b_min, (int)cloud->points.at(j).b);
-        *b_max = std::max( *b_max, (int)cloud->points.at(j).b);
-        *b_mean += cloud->points.at(j).b;
+        *hue_min = std::min( *hue_min, (double)cloud->points.at(j).h);
+        *hue_max = std::max( *hue_max, (double)cloud->points.at(j).h);
+        *hue_mean += cloud->points.at(j).h;
       }
 
       *x_mean = *x_mean / N;
       *y_mean = *y_mean / N;
       *z_mean = *z_mean / N;
-      *r_mean = *r_mean / N;
-      *g_mean = *g_mean / N;
-      *b_mean = *b_mean / N;
+      *hue_mean = *hue_mean / N;
 
       /*ROS_INFO_STREAM( "FILTER:  x min: " << *x_min << " mean: " << *x_mean <<
                                           " max: " << *x_max );
@@ -594,61 +521,12 @@ class Filter
                                           " max: " << *y_max );
       ROS_INFO_STREAM( "FILTER:  z min: " << *z_min << " mean: " << *z_mean <<
                                           " max: " << *z_max );
-      ROS_INFO_STREAM( "FILTER:  r min: " << *r_min << " mean: " << *r_mean <<
-                                          " max: " << *r_max );
-      ROS_INFO_STREAM( "FILTER:  g min: " << *g_min << " mean: " << *g_mean <<
-                                          " max: " << *g_max );
-      ROS_INFO_STREAM( "FILTER:  b min: " << *b_min << " mean: " << *b_mean <<
-                                          " max: " << *b_max );*/
+      ROS_INFO_STREAM( "FILTER:  hue min: " << *hue_min << " mean: " << *hue_mean <<
+                                          " max: " << *hue_max );*/
     }
 
     /*============================================================================*/
-    int color_extraction(double r_mean, double g_mean, double b_mean)
-    {
-      double red_dist = std::sqrt(  std::pow( r_mean - red_.r, 2) +
-                                    std::pow( g_mean - red_.g, 2) +
-                                    std::pow( b_mean - red_.b, 2) );
-      double min_dist = red_dist;
-      int color = perception::Block::RED;
-
-
-      double blue_dist = std::sqrt( std::pow( r_mean - blue_.r, 2) +
-                                    std::pow( g_mean - blue_.g, 2) +
-                                    std::pow( b_mean - blue_.b, 2) );
-
-      if( blue_dist < min_dist)
-      {
-        min_dist = blue_dist;
-        color = perception::Block::BLUE;
-      }
-
-      double green_dist = std::sqrt(  std::pow( r_mean - green_.r, 2) +
-                                      std::pow( g_mean - green_.g, 2) +
-                                      std::pow( b_mean - green_.b, 2) );
-
-      if( green_dist < min_dist)
-      {
-        min_dist = green_dist;
-        color = perception::Block::GREEN;
-      }
-
-      double yellow_dist = std::sqrt( std::pow( r_mean - yellow_.r, 2) +
-                                      std::pow( g_mean - yellow_.g, 2) +
-                                      std::pow( b_mean - yellow_.b, 2) );
-
-      if( yellow_dist < min_dist)
-      {
-        min_dist = yellow_dist;
-        color = perception::Block::YELLOW;
-      }
-
-      //ROS_INFO_STREAM( "FILTER: red_dist " << red_dist << " blue_dist " << blue_dist << " green_dist " << green_dist << " yellow_dist " << yellow_dist );
-
-      return color;
-    }
-
-
-    void object_extraction( std::vector< pcl::PointCloud<pcl::PointXYZRGB>::Ptr >* color_clusters, bool* success,
+    void object_extraction( std::vector< pcl::PointCloud<pcl::PointXYZHSV>::Ptr >* color_clusters, bool* success,
                             std::vector<perception::Block>* blocks)
     {
       ROS_INFO_STREAM( "FILTER: object_extraction " << color_clusters->size() );
@@ -658,7 +536,7 @@ class Filter
       // for each cluster
       for(int i = 0; i < color_clusters->size(); i++)
       {
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = color_clusters->at(i);
+        pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud = color_clusters->at(i);
         perception::Block block;
 
         ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() );
@@ -670,15 +548,10 @@ class Filter
         double x_min, x_max, x_mean;
         double y_min, y_max, y_mean;
         double z_min, z_max, z_mean;
-        int r_min, r_max;
-        int g_min, g_max;
-        int b_min, b_max;
-        double r_mean, g_mean, b_mean;
+        double hue_min, hue_max, hue_mean;
 
-        cloud_statistics( cloud,
-                          &x_min, &x_max, &x_mean, &y_min, &y_max, &y_mean,
-                          &z_min, &z_max, &z_mean, &r_min, &r_max, &r_mean,
-                          &g_min, &g_max, &g_mean, &b_min, &b_max, &b_mean);
+        cloud_statistics( cloud,  &x_min, &x_max,  &x_mean,  &y_min,   &y_max, &y_mean,
+                          &z_min, &z_max, &z_mean, &hue_min, &hue_max, &hue_mean);
 
 
         block.id = i;
@@ -708,7 +581,7 @@ class Filter
         block.pose = poseStamped;
 
         // extract color
-        block.color = color_extraction( r_mean, g_mean, b_mean);
+        block.color = getHueColor( hue_mean);
 
         blocks->push_back(block);
         *success = true;
@@ -774,18 +647,17 @@ class Filter
       plot_x_distribution( table_removed_cloud_);
       plot_x_distribution_hsv( hsv_cloud_);*/
 
-      /*pcl::PointCloud<pcl::PointXYZHSV>::Ptr hsv_cloud (new pcl::PointCloud<pcl::PointXYZHSV>());
-      pcl::PointCloudXYZRGBtoXYZHSV(*table_removed_cloud_, *hsv_cloud); // convert to hsv
-      plot_color_distribution_hsv(hsv_cloud);*/
-
       // segmentation by color
       color_clusters_ = color_segmentation( table_removed_cloud_);
       ROS_INFO_STREAM( "FILTER: color_segementation nr of clusters: " << color_clusters_->size() );
       if (color_clusters_->size() == 0)
         return;
 
+      //plot_color_distribution_hsv( color_clusters_->at(0));
+      //plot_color_distribution_hsv( color_clusters_->at(1));
+
       // extract object information
-      //object_extraction( color_clusters_, success, blocks );
+      object_extraction( color_clusters_, success, blocks );
     }
 
 
@@ -1073,6 +945,8 @@ public:
       //ROS_INFO_STREAM( "FILTER: end constructor" );
     }
 };
+
+
 
 
 /*============================================================================*/
