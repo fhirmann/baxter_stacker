@@ -5,11 +5,11 @@ filter/table_y_high:  0.5
 filter/table_z_low : -0.225
 filter/table_z_high: 0.1
 filter/smoothing_radius: 0.025
-filter/plane_seg_threshold: 0.012
+filter/plane_seg_threshold: 0.010
 filter/plane_seg_max_iterations: 10
 filter/col_seg_min_cluster_size: 100
 filter/col_seg_max_cluster_size: 2000
-filter/col_seg_dist_threshold: 0.01
+filter/col_seg_dist_threshold: 0.015
 filter/col_seg_point_col_threshold: 60
 filter/col_seg_region_col_threshold: 1
 filter/outlier_remove_radius: 0.005

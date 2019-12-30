@@ -38,6 +38,12 @@
 
 #define UNKNOWN_COLOR 100
 
+#define BLOCK_TYP_BIG_SQUARE   1 //40x40x80
+#define BLOCK_TYP_BIG_SLIM     2 //20x40x80
+#define BLOCK_TYP_CUBE         3 //40x40x40
+#define BLOCK_TYP_SMALL_SQUARE 4 //25x25x50
+#define BLOCK_TYP_UNKNOWN      10
+
 struct Color
 {
   int r;
@@ -45,13 +51,13 @@ struct Color
   int b;
 };
 
-inline int getHueColor( double hue)
+int getHueColor( double hue)
 {
   double hue_red_   = 355;
   double hue_blue_  = 220;
   double hue_green_ = 85;
   double hue_yellow_= 35;
-  double hue_tol_   = 20;
+  double hue_tol_   = 15;
 
   int color = UNKNOWN_COLOR;
 
@@ -525,6 +531,37 @@ class Filter
                                           " max: " << *hue_max );*/
     }
 
+    int get_block_type( double width, double height, double depth)
+    {
+      int type = BLOCK_TYP_UNKNOWN;
+      double tol = 0.01;
+
+      if( width  < ( 0.05 + tol ) && width  > ( 0.05 - tol ) &&
+          depth  < ( 0.05 + tol ) && depth  > ( 0.05 - tol ) &&
+          height < ( 0.091 + tol ) && height > ( 0.091 - tol ))
+        type = BLOCK_TYP_BIG_SQUARE; //40x40x80
+
+      if( width  < ( 0.028 + tol ) && width  > ( 0.028 - tol ) &&
+          depth  < ( 0.05 + tol ) && depth  > ( 0.05 - tol ) &&
+          height < ( 0.091 + tol ) && height > ( 0.091 - tol ))
+        type = BLOCK_TYP_BIG_SLIM; //20x40x80
+
+      if( width  < ( 0.05 + tol ) && width  > ( 0.05 - tol ) &&
+          depth  < ( 0.05 + tol ) && depth  > ( 0.05 - tol ) &&
+          height < ( 0.05 + tol ) && height > ( 0.05 - tol ))
+        type = BLOCK_TYP_CUBE; //40x40x40
+
+      if( width  < ( 0.035 + tol ) && width  > ( 0.035 - tol ) &&
+          depth  < ( 0.035 + tol ) && depth  > ( 0.035 - tol ) &&
+          height < ( 0.061 + tol ) && height > ( 0.061 - tol ))
+        type = BLOCK_TYP_SMALL_SQUARE; //25x25x50
+
+
+      ROS_INFO_STREAM( "FILTER: get block type  width " << width << " depth " << depth << " height " << height << " type " << type );
+      return type;
+    }
+
+
     /*============================================================================*/
     void object_extraction( std::vector< pcl::PointCloud<pcl::PointXYZHSV>::Ptr >* color_clusters, bool* success,
                             std::vector<perception::Block>* blocks)
@@ -539,10 +576,18 @@ class Filter
         pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud = color_clusters->at(i);
         perception::Block block;
 
+        // Remove outliers filter
+        /*pcl::RadiusOutlierRemoval<pcl::PointXYZHSV> filter;
+        filter.setInputCloud( cloud);
+        filter.setRadiusSearch( 0.005);
+        filter.setMinNeighborsInRadius(5);
+        filter.filter( *cloud);*/
+
         ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() );
 
-        if( cloud->points.size() < 30)
-          continue;
+        /*plot_x_distribution( cloud);
+        plot_y_distribution( cloud);
+        plot_z_distribution( cloud);*/
 
         // get statistic values
         double x_min, x_max, x_mean;
@@ -553,14 +598,15 @@ class Filter
         cloud_statistics( cloud,  &x_min, &x_max,  &x_mean,  &y_min,   &y_max, &y_mean,
                           &z_min, &z_max, &z_mean, &hue_min, &hue_max, &hue_mean);
 
-
-        block.id = i;
-        block.type = perception::Block::CUBOID;
-
         // extract size and check if plausible
         block.width = x_max - x_min;
         block.depth = y_max - y_min;
         block.height = z_max - z_min;
+
+        block.type = get_block_type( block.width, block.height, block.depth);
+
+        if( block.type == BLOCK_TYP_UNKNOWN)
+          continue;
 
         // extract position and orientation
         geometry_msgs::PoseStamped poseStamped;
@@ -582,6 +628,11 @@ class Filter
 
         // extract color
         block.color = getHueColor( hue_mean);
+
+        if(block.color == UNKNOWN_COLOR)
+          continue;
+
+        block.id = block.color*10 + block.type;
 
         blocks->push_back(block);
         *success = true;
@@ -641,9 +692,6 @@ class Filter
       if (table_removed_cloud_->points.size() == 0)   return;
 
       /*plot_color_distribution_rgb( table_removed_cloud_);
-      plot_x_distribution(table_removed_cloud_);
-      plot_y_distribution(table_removed_cloud);
-      plot_z_distribution(table_removed_cloud);
       plot_x_distribution( table_removed_cloud_);
       plot_x_distribution_hsv( hsv_cloud_);*/
 
@@ -814,7 +862,7 @@ class Filter
       plot6_->plot();
     }
 
-    void plot_x_distribution( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+    void plot_x_distribution( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud)
     {
       std::vector<double> x;
 
@@ -825,30 +873,13 @@ class Filter
         x.push_back( cloud->points.at(i).x);
       }
 
-      plot2_->clearPlots();
-      plot2_->addHistogramData(x, 100, "x rgb");
-      plot2_->setShowLegend(true);
-      plot2_->plot();
+      plot1_->clearPlots();
+      plot1_->addHistogramData(x, 100, "x");
+      plot1_->setShowLegend(true);
+      plot1_->plot();
     }
 
-    void plot_x_distribution_hsv( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud)
-    {
-      std::vector<double> x;
-
-      int N = cloud->points.size();
-
-      for(int i = 0; i < N; i++)
-      {
-        x.push_back( cloud->points.at(i).x);
-      }
-
-      plot6_->clearPlots();
-      plot6_->addHistogramData(x, 100, "x hsv");
-      plot6_->setShowLegend(true);
-      plot6_->plot();
-    }
-
-    void plot_y_distribution( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+    void plot_y_distribution( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud)
     {
       // plot red distribution of points
       std::vector<double> y;
@@ -860,13 +891,13 @@ class Filter
         y.push_back( cloud->points.at(i).y);
       }
 
-      plot3_->clearPlots();
-      plot3_->addHistogramData(y, 100, "y");
-      plot3_->setShowLegend(true);
-      plot3_->plot();
+      plot2_->clearPlots();
+      plot2_->addHistogramData(y, 100, "y");
+      plot2_->setShowLegend(true);
+      plot2_->plot();
     }
 
-    void plot_z_distribution( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud)
+    void plot_z_distribution( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud)
     {
       // plot red distribution of points
       std::vector<double> z;
@@ -878,10 +909,10 @@ class Filter
         z.push_back( cloud->points.at(i).z);
       }
 
-      plot4_->clearPlots();
-      plot4_->addHistogramData(z, 100, "z");
-      plot4_->setShowLegend(true);
-      plot4_->plot();
+      plot3_->clearPlots();
+      plot3_->addHistogramData(z, 100, "z");
+      plot3_->setShowLegend(true);
+      plot3_->plot();
     }
 
 public:
