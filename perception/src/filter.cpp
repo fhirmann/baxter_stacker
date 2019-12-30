@@ -480,6 +480,7 @@ class Filter
                            double* hue_min, double* hue_max, double* hue_mean)
     {
       int N = cloud->points.size();
+      double hue_tol_   = 15;
 
       *x_min = cloud->points.at(0).x;
       *x_max = cloud->points.at(0).x;
@@ -513,7 +514,11 @@ class Filter
 
         *hue_min = std::min( *hue_min, (double)cloud->points.at(j).h);
         *hue_max = std::max( *hue_max, (double)cloud->points.at(j).h);
-        *hue_mean += cloud->points.at(j).h;
+
+        if( cloud->points.at(j).h < hue_tol_)
+          *hue_mean += cloud->points.at(j).h + 360;
+        else
+          *hue_mean += cloud->points.at(j).h;
       }
 
       *x_mean = *x_mean / N;
@@ -557,7 +562,7 @@ class Filter
         type = BLOCK_TYP_SMALL_SQUARE; //25x25x50
 
 
-      ROS_INFO_STREAM( "FILTER: get block type  width " << width << " depth " << depth << " height " << height << " type " << type );
+      //ROS_INFO_STREAM( "FILTER: get block type  width " << width << " depth " << depth << " height " << height << " type " << type );
       return type;
     }
 
@@ -574,7 +579,15 @@ class Filter
       for(int i = 0; i < color_clusters->size(); i++)
       {
         pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud = color_clusters->at(i);
+        pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud_to_split( new pcl::PointCloud<pcl::PointXYZHSV>());
+        pcl::PointCloud<pcl::PointXYZHSV>::Ptr top( new pcl::PointCloud<pcl::PointXYZHSV>());
+        pcl::PointCloud<pcl::PointXYZHSV>::Ptr left( new pcl::PointCloud<pcl::PointXYZHSV>());
+        pcl::PointCloud<pcl::PointXYZHSV>::Ptr right( new pcl::PointCloud<pcl::PointXYZHSV>());
         perception::Block block;
+
+        *cloud_to_split = *color_clusters->at(i);
+
+        int dir = 0;
 
         // Remove outliers filter
         /*pcl::RadiusOutlierRemoval<pcl::PointXYZHSV> filter;
@@ -588,6 +601,74 @@ class Filter
         /*plot_x_distribution( cloud);
         plot_y_distribution( cloud);
         plot_z_distribution( cloud);*/
+
+        // extract planes of cuboid
+        // Create the segmentation object for the planar model;
+        pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+        pcl::ModelCoefficients::Ptr top_coefs(new pcl::ModelCoefficients);
+        pcl::ModelCoefficients::Ptr left_coefs(new pcl::ModelCoefficients);
+        pcl::ModelCoefficients::Ptr right_coefs(new pcl::ModelCoefficients);
+        pcl::PointIndices::Ptr inlierInds(new pcl::PointIndices);
+        pcl::SACSegmentation<pcl::PointXYZHSV> seg;
+
+        // set all parameters
+        seg.setInputCloud( cloud_to_split);
+        seg.setModelType(pcl::SACMODEL_PLANE);
+        seg.setMethodType(pcl::SAC_RANSAC);
+        seg.setDistanceThreshold( 0.003);
+        seg.setOptimizeCoefficients( true);
+        seg.setMaxIterations( 10);
+
+        do{
+
+          // get indices of points lying in the current plane with the coefficients
+          seg.segment(*inlierInds, *coefficients);
+
+          if( coefficients->values.at(2) >= 0.9 )
+            dir = 1; // top plane
+          else if( coefficients->values.at(0) > coefficients->values.at(1))
+            dir = 2;
+          else
+            dir = 3;
+
+          //ROS_INFO_STREAM( "nr. of inliers " << inlierInds->indices.size() << " coeffs " << coefficients->values.at(0) << " | " << coefficients->values.at(1) << " | " <<  coefficients->values.at(2) << " | " <<  coefficients->values.at(3) << " dir " << std::to_string(dir));
+
+          if (inlierInds->indices.size() > 30){
+            // Extract the planar inliers from the input cloud
+            pcl::ExtractIndices<pcl::PointXYZHSV> extract;
+            extract.setInputCloud( cloud_to_split);
+            extract.setIndices( inlierInds);
+
+            // Extract the points in the plane
+            extract.setNegative(false);
+            switch (dir) {
+              case 1:
+                if( top->points.size() < inlierInds->indices.size()) {
+                  extract.filter(*top);
+                  top_coefs = coefficients;
+                }
+                break;
+              case 2:
+                if( left->points.size() < inlierInds->indices.size()) {
+                  extract.filter(*left);
+                  left_coefs = coefficients;
+                }
+                break;
+              case 3:
+                if( right->points.size() < inlierInds->indices.size()){
+                  extract.filter(*right);
+                  right_coefs = coefficients;
+                }
+                break;
+            }
+            // Extract the points which don't belong to the plane
+            extract.setNegative(true);
+            extract.filter( *cloud_to_split);
+          }
+
+          //ROS_INFO_STREAM( "cloud to split size " << cloud_to_split->points.size() << " top sizes " << top->points.size() << " left sizes " << left->points.size() << " right sizes " << right->points.size());
+        } while ( inlierInds->indices.size() > 30 && cloud_to_split->points.size() > 30);
+        //TODO evaluate each side of the block
 
         // get statistic values
         double x_min, x_max, x_mean;
@@ -628,6 +709,9 @@ class Filter
 
         // extract color
         block.color = getHueColor( hue_mean);
+
+        //plot_color_distribution_hsv( cloud);
+        //ROS_INFO_STREAM( "block color " << hue_mean << " nr " << std::to_string(block.color) );
 
         if(block.color == UNKNOWN_COLOR)
           continue;
