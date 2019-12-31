@@ -44,55 +44,20 @@
 #define BLOCK_TYP_SMALL_SQUARE 4 //25x25x50
 #define BLOCK_TYP_UNKNOWN      10
 
-struct Color
+struct Blocksize
 {
-  int r;
-  int g;
-  int b;
+  double width;
+  double depth;
+  double height;
 };
 
-int getHueColor( double hue)
-{
-  double hue_red_   = 355;
-  double hue_blue_  = 220;
-  double hue_green_ = 85;
-  double hue_yellow_= 35;
-  double hue_tol_   = 15;
+// global parameters because the static function is not able to use member variables
+double hue_red_;
+double hue_blue_;
+double hue_green_;
+double hue_yellow_;
+double hue_tol_;
 
-  int color = UNKNOWN_COLOR;
-
-  if( hue < hue_tol_) hue += 360;
-
-  if( hue > (hue_red_ - hue_tol_) && hue < (hue_red_ + hue_tol_))
-    color = perception::Block::RED;
-
-  if( hue > (hue_blue_ - hue_tol_) && hue < (hue_blue_ + hue_tol_))
-    color = perception::Block::BLUE;
-
-  if( hue > (hue_green_ - hue_tol_) && hue < (hue_green_ + hue_tol_))
-    color = perception::Block::GREEN;
-
-  if( hue > (hue_yellow_ - hue_tol_) && hue < (hue_yellow_ + hue_tol_))
-    color = perception::Block::YELLOW;
-
-  return color;
-}
-
-// If this function returns true, the candidate point will be added
-// to the cluster of the seed point.
-bool colorCondition(const pcl::PointXYZHSV& seedPoint, const pcl::PointXYZHSV& candidatePoint, float squaredDistance)
-{
-
-  int seedColor = getHueColor( seedPoint.h);
-  int canditateColor = getHueColor( candidatePoint.h);
-
-  // Do whatever you want here.
-  //ROS_INFO_STREAM( "Seed h = " << seedPoint.h << " color " << seedColor << " candidate h = " << candidatePoint.h << " color " << canditateColor);
-  if ( seedColor == UNKNOWN_COLOR || seedColor != canditateColor)
-    return false;
-
-  return true;
-}
 
 /*============================================================================*/
 /*==== Transform point cloud to baxter base  =================================*/
@@ -143,15 +108,12 @@ class Filter
     int    col_seg_max_cluster_size_;
     double col_seg_dist_threshold_;
 
-    int    col_seg_point_col_threshold_;
-    int    col_seg_region_col_threshold_;
+    double block_plane_dist_threshold_;
+    int    block_plane_max_iterations_;
+    int    block_plane_min_points_;
 
-
-    double outlier_remove_radius_;
-    int    outlier_remove_min_neighb_;
-
-
-    Color red_, blue_, yellow_, green_;
+    Blocksize big_square_, big_slim_, cube_, small_square_;
+    double block_type_tol_;
 
     pcl::visualization::PCLPlotter *plot1_, *plot2_, *plot3_, *plot4_, *plot5_, *plot6_;
 
@@ -167,7 +129,7 @@ class Filter
     /*============================================================================*/
     /*===== load parameters ======================================================*/
     /*============================================================================*/
-    void load_parameters()
+    bool load_parameters()
     {
       //ROS_INFO_STREAM( "FILTER:  load_param  " << nh_.getParam("/filter/table_x_low",  table_x_low_) );
 
@@ -178,61 +140,84 @@ class Filter
       if(!nh_.getParam("/filter/table_y_high", table_y_high_))  ok = false;
       if(!nh_.getParam("/filter/table_z_low",  table_z_low_))   ok = false;
       if(!nh_.getParam("/filter/table_z_high", table_z_high_))  ok = false;
-      if(!nh_.getParam("/filter/smoothing_radius", smoothing_radius_))  ok = false;
-      if(!nh_.getParam("/filter/plane_seg_threshold", plane_seg_threshold_))  ok = false;
+
+      //ROS_INFO_STREAM(" load_param: ok1 " << ok);
+
+      if(!nh_.getParam("/filter/smoothing_radius",          smoothing_radius_))         ok = false;
+      if(!nh_.getParam("/filter/plane_seg_threshold",       plane_seg_threshold_))      ok = false;
       if(!nh_.getParam("/filter/plane_seg_max_iterations",  plane_seg_max_iterations_)) ok = false;
+
+      //ROS_INFO_STREAM(" load_param: ok2 " << ok);
+
       if(!nh_.getParam("/filter/col_seg_min_cluster_size",  col_seg_min_cluster_size_)) ok = false;
       if(!nh_.getParam("/filter/col_seg_max_cluster_size",  col_seg_max_cluster_size_)) ok = false;
-      if(!nh_.getParam("/filter/col_seg_dist_threshold",  col_seg_dist_threshold_)) ok = false;
+      if(!nh_.getParam("/filter/col_seg_dist_threshold",    col_seg_dist_threshold_))   ok = false;
 
-      if(!nh_.getParam("/filter/col_seg_point_col_threshold",  col_seg_point_col_threshold_)) ok = false;
-      if(!nh_.getParam("/filter/col_seg_region_col_threshold",  col_seg_region_col_threshold_)) ok = false;
+      //ROS_INFO_STREAM(" load_param: ok3 " << ok);
 
-      if(!nh_.getParam("/filter/outlier_remove_radius",  outlier_remove_radius_)) ok = false;
-      if(!nh_.getParam("/filter/outlier_remove_min_neighb",  outlier_remove_min_neighb_)) ok = false;
+      if(!nh_.getParam("/filter/hue_red",   hue_red_))   ok = false;
+      if(!nh_.getParam("/filter/hue_blue",  hue_blue_))  ok = false;
+      if(!nh_.getParam("/filter/hue_green", hue_green_)) ok = false;
+      if(!nh_.getParam("/filter/hue_tol",   hue_tol_))   ok = false;
 
-      std::vector<int> param_list;
-      if( nh_.getParam("/filter/color_red", param_list))
+      //ROS_INFO_STREAM(" load_param: ok4 " << ok);
+
+      if(!nh_.getParam("/filter/block_plane_dist_threshold",   block_plane_dist_threshold_))   ok = false;
+      if(!nh_.getParam("/filter/block_plane_max_iterations",   block_plane_max_iterations_))   ok = false;
+      if(!nh_.getParam("/filter/block_plane_min_points",       block_plane_min_points_))       ok = false;
+
+      std::vector<double> param_list;
+      if( nh_.getParam("/filter/block_type_big_square", param_list))
       {
-        red_.r = param_list[0];
-        red_.g = param_list[1];
-        red_.b = param_list[2];
+        big_square_.width  = param_list[0];
+        big_square_.depth  = param_list[1];
+        big_square_.height = param_list[2];
       }
       else
         ok = false;
 
-      if( nh_.getParam("/filter/color_blue", param_list))
+      //ROS_INFO_STREAM(" load_param: ok5 " << ok);
+
+      if( nh_.getParam("/filter/block_type_big_slim", param_list))
       {
-        blue_.r = param_list[0];
-        blue_.g = param_list[1];
-        blue_.b = param_list[2];
+        big_slim_.width  = param_list[0];
+        big_slim_.depth  = param_list[1];
+        big_slim_.height = param_list[2];
       }
       else
         ok = false;
 
-      if( nh_.getParam("/filter/color_green", param_list))
+      //ROS_INFO_STREAM(" load_param: ok6 " << ok);
+
+      if( nh_.getParam("/filter/block_type_cube", param_list))
       {
-        green_.r = param_list[0];
-        green_.g = param_list[1];
-        green_.b = param_list[2];
+        cube_.width  = param_list[0];
+        cube_.depth  = param_list[1];
+        cube_.height = param_list[2];
       }
       else
         ok = false;
 
-      if( nh_.getParam("/filter/color_yellow", param_list))
+      //ROS_INFO_STREAM(" load_param: ok7 " << ok);
+
+      if( nh_.getParam("/filter/block_type_small_square", param_list))
       {
-        yellow_.r = param_list[0];
-        yellow_.g = param_list[1];
-        yellow_.b = param_list[2];
+        small_square_.width  = param_list[0];
+        small_square_.depth  = param_list[1];
+        small_square_.height = param_list[2];
       }
       else
         ok = false;
 
-      //std::cout << ok << "  " << nh_.getParam("/filter/table_x_low",  table_x_low_) );
+      //ROS_INFO_STREAM(" load_param: ok8 " << ok);
+
+      if(!nh_.getParam("/filter/block_type_tol",   block_type_tol_))   ok = false;
+
 
       if( !ok)
         ROS_ERROR_STREAM( "FILTER:  was not able to load parameters!" );
 
+      return ok;
     }
 
     /*============================================================================*/
@@ -424,6 +409,44 @@ class Filter
       return rgb_cloud;
     }
 
+    static int get_hue_color( double hue)
+    {
+
+      int color = UNKNOWN_COLOR;
+
+      if( hue < hue_tol_) hue += 360;
+
+      if( hue > (hue_red_ - hue_tol_) && hue < (hue_red_ + hue_tol_))
+        color = perception::Block::RED;
+
+      if( hue > (hue_blue_ - hue_tol_) && hue < (hue_blue_ + hue_tol_))
+        color = perception::Block::BLUE;
+
+      if( hue > (hue_green_ - hue_tol_) && hue < (hue_green_ + hue_tol_))
+        color = perception::Block::GREEN;
+
+      if( hue > (hue_yellow_ - hue_tol_) && hue < (hue_yellow_ + hue_tol_))
+        color = perception::Block::YELLOW;
+
+      return color;
+    }
+
+    // If this function returns true, the candidate point will be added
+    // to the cluster of the seed point.
+    static bool color_condition(const pcl::PointXYZHSV& seedPoint, const pcl::PointXYZHSV& candidatePoint, float squaredDistance)
+    {
+
+      int seedColor = get_hue_color( seedPoint.h);
+      int canditateColor = get_hue_color( candidatePoint.h);
+
+      // Do whatever you want here.
+      //ROS_INFO_STREAM( "Seed h = " << seedPoint.h << " color " << seedColor << " candidate h = " << candidatePoint.h << " color " << canditateColor);
+      if ( seedColor == UNKNOWN_COLOR || seedColor != canditateColor)
+        return false;
+
+      return true;
+    }
+
     std::vector< pcl::PointCloud<pcl::PointXYZHSV>::Ptr >* color_segmentation(
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud)
     {
@@ -440,7 +463,7 @@ class Filter
       clustering_hsv.setClusterTolerance( col_seg_dist_threshold_);
       clustering_hsv.setMinClusterSize(   col_seg_min_cluster_size_);
       clustering_hsv.setMaxClusterSize(   col_seg_max_cluster_size_);
-      clustering_hsv.setConditionFunction( &colorCondition);
+      clustering_hsv.setConditionFunction( &color_condition);
 
       clustering_hsv.segment( clusters_hsv);
 
@@ -480,7 +503,6 @@ class Filter
                            double* hue_min, double* hue_max, double* hue_mean)
     {
       int N = cloud->points.size();
-      double hue_tol_   = 15;
 
       *x_min = cloud->points.at(0).x;
       *x_max = cloud->points.at(0).x;
@@ -539,26 +561,25 @@ class Filter
     int get_block_type( double width, double height, double depth)
     {
       int type = BLOCK_TYP_UNKNOWN;
-      double tol = 0.01;
 
-      if( width  < ( 0.05 + tol ) && width  > ( 0.05 - tol ) &&
-          depth  < ( 0.05 + tol ) && depth  > ( 0.05 - tol ) &&
-          height < ( 0.091 + tol ) && height > ( 0.091 - tol ))
+      if( width  < ( big_square_.width  + block_type_tol_ ) && width  > ( big_square_.width  - block_type_tol_ ) &&
+          depth  < ( big_square_.depth  + block_type_tol_ ) && depth  > ( big_square_.depth  - block_type_tol_ ) &&
+          height < ( big_square_.height + block_type_tol_ ) && height > ( big_square_.height - block_type_tol_ ))
         type = BLOCK_TYP_BIG_SQUARE; //40x40x80
 
-      if( width  < ( 0.028 + tol ) && width  > ( 0.028 - tol ) &&
-          depth  < ( 0.05 + tol ) && depth  > ( 0.05 - tol ) &&
-          height < ( 0.091 + tol ) && height > ( 0.091 - tol ))
+      if( width  < ( big_slim_.width  + block_type_tol_ ) && width  > ( big_slim_.width  - block_type_tol_ ) &&
+          depth  < ( big_slim_.depth  + block_type_tol_ ) && depth  > ( big_slim_.depth  - block_type_tol_ ) &&
+          height < ( big_slim_.height + block_type_tol_ ) && height > ( big_slim_.height - block_type_tol_ ))
         type = BLOCK_TYP_BIG_SLIM; //20x40x80
 
-      if( width  < ( 0.05 + tol ) && width  > ( 0.05 - tol ) &&
-          depth  < ( 0.05 + tol ) && depth  > ( 0.05 - tol ) &&
-          height < ( 0.05 + tol ) && height > ( 0.05 - tol ))
+      if( width  < ( cube_.width  + block_type_tol_ ) && width  > ( cube_.width  - block_type_tol_ ) &&
+          depth  < ( cube_.depth  + block_type_tol_ ) && depth  > ( cube_.depth  - block_type_tol_ ) &&
+          height < ( cube_.height + block_type_tol_ ) && height > ( cube_.height - block_type_tol_ ))
         type = BLOCK_TYP_CUBE; //40x40x40
 
-      if( width  < ( 0.035 + tol ) && width  > ( 0.035 - tol ) &&
-          depth  < ( 0.035 + tol ) && depth  > ( 0.035 - tol ) &&
-          height < ( 0.061 + tol ) && height > ( 0.061 - tol ))
+      if( width  < ( small_square_.width  + block_type_tol_ ) && width  > ( small_square_.width  - block_type_tol_ ) &&
+          depth  < ( small_square_.depth  + block_type_tol_ ) && depth  > ( small_square_.depth  - block_type_tol_ ) &&
+          height < ( small_square_.height + block_type_tol_ ) && height > ( small_square_.height - block_type_tol_ ))
         type = BLOCK_TYP_SMALL_SQUARE; //25x25x50
 
 
@@ -566,8 +587,82 @@ class Filter
       return type;
     }
 
+    void split_block_into_planes( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud, pcl::PointCloud<pcl::PointXYZHSV>::Ptr top,
+                                  pcl::PointCloud<pcl::PointXYZHSV>::Ptr left,  pcl::PointCloud<pcl::PointXYZHSV>::Ptr right,
+                                  pcl::ModelCoefficients::Ptr top_coefs,        pcl::ModelCoefficients::Ptr left_coefs,
+                                  pcl::ModelCoefficients::Ptr right_coefs)
+    {
+      // extract planes of cuboid
+      // Create the segmentation object for the planar model;
+      pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud_to_split( new pcl::PointCloud<pcl::PointXYZHSV>());
+      pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+      pcl::PointIndices::Ptr inlierInds(new pcl::PointIndices);
+      pcl::SACSegmentation<pcl::PointXYZHSV> seg;
 
-    /*============================================================================*/
+      *cloud_to_split = *cloud;
+
+      // set all parameters
+      seg.setInputCloud( cloud_to_split);
+      seg.setModelType(pcl::SACMODEL_PLANE);
+      seg.setMethodType(pcl::SAC_RANSAC);
+      seg.setDistanceThreshold( block_plane_dist_threshold_);
+      seg.setOptimizeCoefficients( true);
+      seg.setMaxIterations( block_plane_max_iterations_);
+
+      int dir = 0;
+
+      do{
+
+        // get indices of points lying in the current plane with the coefficients
+        seg.segment(*inlierInds, *coefficients);
+
+        if( coefficients->values.at(2) >= 0.9 )
+          dir = 1; // top plane
+        else if( coefficients->values.at(0) > coefficients->values.at(1))
+          dir = 2;
+        else
+          dir = 3;
+
+        //ROS_INFO_STREAM( "nr. of inliers " << inlierInds->indices.size() << " coeffs " << coefficients->values.at(0) << " | " << coefficients->values.at(1) << " | " <<  coefficients->values.at(2) << " | " <<  coefficients->values.at(3) << " dir " << std::to_string(dir));
+
+        if (inlierInds->indices.size() > block_plane_min_points_){
+          // Extract the planar inliers from the input cloud
+          pcl::ExtractIndices<pcl::PointXYZHSV> extract;
+          extract.setInputCloud( cloud_to_split);
+          extract.setIndices( inlierInds);
+
+          // Extract the points in the plane
+          extract.setNegative(false);
+          switch (dir) {
+            case 1:
+              if( top->points.size() < inlierInds->indices.size()) {
+                extract.filter(*top);
+                top_coefs = coefficients;
+              }
+              break;
+            case 2:
+              if( left->points.size() < inlierInds->indices.size()) {
+                extract.filter(*left);
+                left_coefs = coefficients;
+              }
+              break;
+            case 3:
+              if( right->points.size() < inlierInds->indices.size()){
+                extract.filter(*right);
+                right_coefs = coefficients;
+              }
+              break;
+          }
+          // Extract the points which don't belong to the plane
+          extract.setNegative(true);
+          extract.filter( *cloud_to_split);
+        }
+
+        //ROS_INFO_STREAM( "cloud to split size " << cloud_to_split->points.size() << " top sizes " << top->points.size() << " left sizes " << left->points.size() << " right sizes " << right->points.size());
+      } while ( inlierInds->indices.size() > block_plane_min_points_ &&
+                cloud_to_split->points.size() > block_plane_min_points_);
+    }
+
     void object_extraction( std::vector< pcl::PointCloud<pcl::PointXYZHSV>::Ptr >* color_clusters, bool* success,
                             std::vector<perception::Block>* blocks)
     {
@@ -579,96 +674,23 @@ class Filter
       for(int i = 0; i < color_clusters->size(); i++)
       {
         pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud = color_clusters->at(i);
-        pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud_to_split( new pcl::PointCloud<pcl::PointXYZHSV>());
         pcl::PointCloud<pcl::PointXYZHSV>::Ptr top( new pcl::PointCloud<pcl::PointXYZHSV>());
         pcl::PointCloud<pcl::PointXYZHSV>::Ptr left( new pcl::PointCloud<pcl::PointXYZHSV>());
         pcl::PointCloud<pcl::PointXYZHSV>::Ptr right( new pcl::PointCloud<pcl::PointXYZHSV>());
+        pcl::ModelCoefficients::Ptr top_coeffs(new pcl::ModelCoefficients);
+        pcl::ModelCoefficients::Ptr left_coeffs(new pcl::ModelCoefficients);
+        pcl::ModelCoefficients::Ptr right_coeffs(new pcl::ModelCoefficients);
         perception::Block block;
 
-        *cloud_to_split = *color_clusters->at(i);
+        split_block_into_planes( cloud, top, left, right, top_coeffs, left_coeffs, right_coeffs);
 
-        int dir = 0;
+        //TODO evaluate each side of the block
 
-        // Remove outliers filter
-        /*pcl::RadiusOutlierRemoval<pcl::PointXYZHSV> filter;
-        filter.setInputCloud( cloud);
-        filter.setRadiusSearch( 0.005);
-        filter.setMinNeighborsInRadius(5);
-        filter.filter( *cloud);*/
-
-        ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() );
+        ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
 
         /*plot_x_distribution( cloud);
         plot_y_distribution( cloud);
         plot_z_distribution( cloud);*/
-
-        // extract planes of cuboid
-        // Create the segmentation object for the planar model;
-        pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
-        pcl::ModelCoefficients::Ptr top_coefs(new pcl::ModelCoefficients);
-        pcl::ModelCoefficients::Ptr left_coefs(new pcl::ModelCoefficients);
-        pcl::ModelCoefficients::Ptr right_coefs(new pcl::ModelCoefficients);
-        pcl::PointIndices::Ptr inlierInds(new pcl::PointIndices);
-        pcl::SACSegmentation<pcl::PointXYZHSV> seg;
-
-        // set all parameters
-        seg.setInputCloud( cloud_to_split);
-        seg.setModelType(pcl::SACMODEL_PLANE);
-        seg.setMethodType(pcl::SAC_RANSAC);
-        seg.setDistanceThreshold( 0.003);
-        seg.setOptimizeCoefficients( true);
-        seg.setMaxIterations( 10);
-
-        do{
-
-          // get indices of points lying in the current plane with the coefficients
-          seg.segment(*inlierInds, *coefficients);
-
-          if( coefficients->values.at(2) >= 0.9 )
-            dir = 1; // top plane
-          else if( coefficients->values.at(0) > coefficients->values.at(1))
-            dir = 2;
-          else
-            dir = 3;
-
-          //ROS_INFO_STREAM( "nr. of inliers " << inlierInds->indices.size() << " coeffs " << coefficients->values.at(0) << " | " << coefficients->values.at(1) << " | " <<  coefficients->values.at(2) << " | " <<  coefficients->values.at(3) << " dir " << std::to_string(dir));
-
-          if (inlierInds->indices.size() > 30){
-            // Extract the planar inliers from the input cloud
-            pcl::ExtractIndices<pcl::PointXYZHSV> extract;
-            extract.setInputCloud( cloud_to_split);
-            extract.setIndices( inlierInds);
-
-            // Extract the points in the plane
-            extract.setNegative(false);
-            switch (dir) {
-              case 1:
-                if( top->points.size() < inlierInds->indices.size()) {
-                  extract.filter(*top);
-                  top_coefs = coefficients;
-                }
-                break;
-              case 2:
-                if( left->points.size() < inlierInds->indices.size()) {
-                  extract.filter(*left);
-                  left_coefs = coefficients;
-                }
-                break;
-              case 3:
-                if( right->points.size() < inlierInds->indices.size()){
-                  extract.filter(*right);
-                  right_coefs = coefficients;
-                }
-                break;
-            }
-            // Extract the points which don't belong to the plane
-            extract.setNegative(true);
-            extract.filter( *cloud_to_split);
-          }
-
-          //ROS_INFO_STREAM( "cloud to split size " << cloud_to_split->points.size() << " top sizes " << top->points.size() << " left sizes " << left->points.size() << " right sizes " << right->points.size());
-        } while ( inlierInds->indices.size() > 30 && cloud_to_split->points.size() > 30);
-        //TODO evaluate each side of the block
 
         // get statistic values
         double x_min, x_max, x_mean;
@@ -708,7 +730,7 @@ class Filter
         block.pose = poseStamped;
 
         // extract color
-        block.color = getHueColor( hue_mean);
+        block.color = get_hue_color( hue_mean);
 
         //plot_color_distribution_hsv( cloud);
         //ROS_INFO_STREAM( "block color " << hue_mean << " nr " << std::to_string(block.color) );
@@ -735,7 +757,8 @@ class Filter
       *success = false;
 
       // Load all parameters
-      load_parameters();
+      if( !load_parameters())
+        return;
 
       //handle debug mode with rosbag (timestamps wrong!)
       if( debug_)
@@ -999,23 +1022,31 @@ class Filter
       plot3_->plot();
     }
 
-public:
+  public:
 
     Filter(ros::NodeHandle nh, std::string cmd):
       nh_(nh),
-      table_x_low_(0.0), table_x_high_(0.0),
-      table_y_low_(0.0), table_y_high_(0.0),
-      table_z_low_(0.0), table_z_high_(0.0),
-      plane_seg_threshold_(0.0),
-      plane_seg_max_iterations_(0),
+      table_x_low_(0.44), table_x_high_(1.24),
+      table_y_low_(-0.5), table_y_high_(0.5),
+      table_z_low_(-0.225), table_z_high_(0.1),
+      smoothing_radius_(0.0025),
+      plane_seg_threshold_(0.01),
+      plane_seg_max_iterations_(10),
       col_seg_min_cluster_size_(100),
-      col_seg_dist_threshold_(0.0),
-      col_seg_point_col_threshold_(0.0),
-      col_seg_region_col_threshold_(0.0),
-      outlier_remove_radius_(0.0),
-      outlier_remove_min_neighb_(0)
+      col_seg_max_cluster_size_(2000),
+      col_seg_dist_threshold_(0.015),
+      block_plane_dist_threshold_(0.003),
+      block_plane_max_iterations_(10),
+      block_plane_min_points_(30),
+      block_type_tol_(0.01)
     {
       //ROS_INFO_STREAM( "FILTER: start constructor" );
+      hue_red_   = 355;
+      hue_blue_  = 220;
+      hue_green_ = 85;
+      hue_yellow_= 35;
+      hue_tol_   = 15;
+
       if( !cmd.empty() && cmd == "debug")
       {
         ROS_INFO("FILTER: entering debug mode");
@@ -1058,6 +1089,7 @@ public:
       plot5_ = new pcl::visualization::PCLPlotter();
       plot6_ = new pcl::visualization::PCLPlotter();
       //ROS_INFO_STREAM( "FILTER: end constructor" );
+
     }
 };
 

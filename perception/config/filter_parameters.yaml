@@ -10,11 +10,17 @@ filter/plane_seg_max_iterations: 10
 filter/col_seg_min_cluster_size: 100
 filter/col_seg_max_cluster_size: 2000
 filter/col_seg_dist_threshold: 0.015
-filter/col_seg_point_col_threshold: 60
-filter/col_seg_region_col_threshold: 1
-filter/outlier_remove_radius: 0.005
-filter/outlier_remove_min_neighb: 10
-filter/color_red: [220, 100, 100]
-filter/color_blue: [100, 150, 210]
-filter/color_green: [130, 200, 100]
-filter/color_yellow: [250, 250, 40]
+filter/hue_red: 355
+filter/hue_blue: 220
+filter/hue_green: 85
+filter/hue_yellow: 35
+filter/hue_tol: 15
+filter/block_plane_dist_threshold: 0.003
+filter/block_plane_max_iterations: 10
+filter/block_plane_min_points: 30
+filter/block_type_big_square: [0.05, 0.05, 0.091]
+filter/block_type_big_slim: [0.028, 0.05, 0.091]
+filter/block_type_cube: [0.05, 0.05, 0.05]
+filter/block_type_small_square: [0.035, 0.035, 0.061]
+filter/block_type_tol: 0.01
+
