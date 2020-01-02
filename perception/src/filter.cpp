@@ -33,7 +33,7 @@
 #include "perception/GetScene.h"
 #include "perception/Block.h"
 
-#define GLOBAL_FRAME_ID "/world"
+#define GLOBAL_FRAME_ID "/table"
 #define CAMERA_FRAME_ID "/camera_rgb_optical_frame"
 
 #define UNKNOWN_COLOR 100
@@ -78,19 +78,24 @@ class Filter
     ros::Publisher  smoothed_pc_pub_;
     ros::Publisher  trimmed_pc_pub_;
     ros::Publisher  table_removed_pc_pub_;
-    ros::Publisher  hsv_pc_pub_;
     ros::Publisher  block1_pc_pub_;
     ros::Publisher  block2_pc_pub_;
     ros::Publisher  block3_pc_pub_;
     ros::Publisher  block4_pc_pub_;
     ros::Publisher  block5_pc_pub_;
 
+    ros::Publisher  block1_top_pc_pub_;
+    ros::Publisher  block1_left_pc_pub_;
+    ros::Publisher  block1_right_pc_pub_;
+
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr transformed_cloud_;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr smoothed_cloud_;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr trimmed_cloud_;
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr table_removed_cloud_;
     pcl::PointCloud<pcl::PointXYZHSV>::Ptr hsv_cloud_;
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr output_cloud_;
+    pcl::PointCloud<pcl::PointXYZHSV>::Ptr b1_top_;
+    pcl::PointCloud<pcl::PointXYZHSV>::Ptr b1_left_;
+    pcl::PointCloud<pcl::PointXYZHSV>::Ptr b1_right_;
     std::vector< pcl::PointCloud<pcl::PointXYZHSV>::Ptr >* color_clusters_;
 
     tf::TransformListener tf_listener_;
@@ -684,6 +689,17 @@ class Filter
 
         split_block_into_planes( cloud, top, left, right, top_coeffs, left_coeffs, right_coeffs);
 
+        if(i == 0)
+        {
+          b1_top_   = top;
+          b1_left_  = left;
+          b1_right_ = right;
+
+          b1_top_->header = cloud->header;
+          b1_left_->header = cloud->header;
+          b1_right_->header = cloud->header;
+        }
+
         //TODO evaluate each side of the block
 
         ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
@@ -873,36 +889,61 @@ class Filter
 
       if( transformed_cloud_ ) {
         transformed_pc_pub_.publish(*transformed_cloud_);
+      }
+
+      if( smoothed_cloud_) {
         smoothed_pc_pub_.publish(*smoothed_cloud_);
+      }
+
+      if( trimmed_cloud_ ) {
         trimmed_pc_pub_.publish(*trimmed_cloud_);
+      }
+
+      if( table_removed_cloud_) {
         table_removed_pc_pub_.publish(*table_removed_cloud_);
+      }
 
-        if(hsv_cloud_)
-          hsv_pc_pub_.publish(*hsv_cloud_);
 
-        //rviz can only display RGB points -> therefore transfer it back to rgb color space
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr rgb_cloud (new pcl::PointCloud<pcl::PointXYZRGB>());
+      //rviz can only display RGB points -> therefore transfer it back to rgb color space
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr rgb_cloud (new pcl::PointCloud<pcl::PointXYZRGB>());
 
+
+      if( color_clusters_!= nullptr) {
         if (color_clusters_->size() >= 1) {
-          rgb_cloud = hsv_to_rgb( color_clusters_->at(0));
+          rgb_cloud = hsv_to_rgb(color_clusters_->at(0));
           block1_pc_pub_.publish(rgb_cloud);
         }
         if (color_clusters_->size() >= 2) {
-          rgb_cloud = hsv_to_rgb( color_clusters_->at(1));
+          rgb_cloud = hsv_to_rgb(color_clusters_->at(1));
           block2_pc_pub_.publish(rgb_cloud);
         }
         if (color_clusters_->size() >= 3) {
-          rgb_cloud = hsv_to_rgb( color_clusters_->at(2));
+          rgb_cloud = hsv_to_rgb(color_clusters_->at(2));
           block3_pc_pub_.publish(rgb_cloud);
         }
         if (color_clusters_->size() >= 4) {
-          rgb_cloud = hsv_to_rgb( color_clusters_->at(3));
+          rgb_cloud = hsv_to_rgb(color_clusters_->at(3));
           block4_pc_pub_.publish(rgb_cloud);
         }
         if (color_clusters_->size() >= 5) {
-          rgb_cloud = hsv_to_rgb( color_clusters_->at(4));
+          rgb_cloud = hsv_to_rgb(color_clusters_->at(4));
           block5_pc_pub_.publish(rgb_cloud);
         }
+      }
+
+      if ( b1_top_) {
+        rgb_cloud = hsv_to_rgb( b1_top_);
+        block1_top_pc_pub_.publish(rgb_cloud);
+      }
+
+      if ( b1_left_) {
+        rgb_cloud = hsv_to_rgb( b1_left_);
+        block1_left_pc_pub_.publish(rgb_cloud);
+      }
+
+      if ( b1_right_) {
+        rgb_cloud = hsv_to_rgb( b1_right_);
+        block1_right_pc_pub_.publish(rgb_cloud);
       }
     }
 
@@ -1040,6 +1081,8 @@ class Filter
       block_plane_min_points_(30),
       block_type_tol_(0.01)
     {
+      color_clusters_ = nullptr;
+
       //ROS_INFO_STREAM( "FILTER: start constructor" );
       hue_red_   = 355;
       hue_blue_  = 220;
@@ -1075,12 +1118,14 @@ class Filter
       smoothed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_smoothed", 1);
       trimmed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_trimmed", 1);
       table_removed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_table_removed", 1);
-      hsv_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZHSV>>("/filter_hsv", 1);
       block1_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block1", 1);
       block2_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block2", 1);
       block3_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block3", 1);
       block4_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block4", 1);
       block5_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block5", 1);
+      block1_top_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_b1_top", 1);
+      block1_left_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_b1_left", 1);
+      block1_right_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_b1_right", 1);
 
       plot1_ = new pcl::visualization::PCLPlotter();
       plot2_ = new pcl::visualization::PCLPlotter();
