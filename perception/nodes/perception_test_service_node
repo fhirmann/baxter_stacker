@@ -93,6 +93,31 @@ def get_block_stacked_on_block3_from_test_scene():
 
     return block
 
+    
+
+def get_block_stacked_on_block2_from_test_scene():
+    block = Block()
+    block.id = 3
+    block.type = block.CUBOID
+    block.color = block.BLUE
+
+    block.width = 40./1000.
+    block.depth = 40./1000.
+    block.height = 80./1000.
+
+    block.pose.header.frame_id = '/table'
+
+    block2 = get_defined_block2_from_test_scene()
+
+    block.pose.pose.position.x = block2.pose.pose.position.x
+    block.pose.pose.position.y = block2.pose.pose.position.y
+    block.pose.pose.position.z = block2.pose.pose.position.z + block2.height/2 + block.height/2 # position from block2 + half height of block 3 + half height of new block
+
+    # no orientation (=0)
+
+
+    return block
+
 def block_list_simple_scene():
     # large yellow_block is on loc1
     # red block is on loc2
@@ -108,7 +133,9 @@ def block_list_stacked_scene():
     # large yellow_block is on loc1, large blue block is stacked on large yellow_block
     # small red block is on loc2
     return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene(), get_block_stacked_on_block1_from_test_scene()]
-    
+
+def block_list_easy_collision_scene():
+    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene(), get_block_stacked_on_block2_from_test_scene()]
 
 def handle_get_scene(req):
     rospy.loginfo("Handling get_scene service...")

@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
-#TODO: lower hdiff when grasping
-#TODO: improve table coordinates --> maybe add table frame
-#TODO: shrink moveit scene objects to avoid collision when coordiantes are noisy
+#TODO: Path constraints
+#TODO: check table coordinate frame
 
 import sys
 import copy
@@ -67,7 +66,7 @@ def handle_pick_up(req):
   #get motion plan for block pickup
   plan = arm_ctrl.planBlockPickup(block_pose=block.pose, height_dif=0, arm='left', use_constraint=True)
   # execute plan
-  if not arm_ctrl.executePlan(plan):
+  if not arm_ctrl.executePlan(plan, reduce_speed=True):
     print("[kmr19_manipulation_server]: Robot failed during grasp pose")
     arm_ctrl.moveToInitPosition(arm='left')
     return kmr19_pick_upResponse(False)
@@ -86,7 +85,7 @@ def handle_pick_up(req):
 
   #plan and execute post grasp procedure
   plan = arm_ctrl.planBlockPickup(block_pose=block.pose, height_dif=h_dif, arm='left', use_constraint=True)
-  if not arm_ctrl.executePlan(plan):
+  if not arm_ctrl.executePlan(plan, reduce_speed=True):
     print("[kmr19_manipulation_server]: Robot failed during post grasp pose")
     arm_ctrl.moveToInitPosition(arm='left')
     return kmr19_pick_upResponse(False)
@@ -139,7 +138,7 @@ def handle_put_down(req):
 
   # plan and execute release procedure
   plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position, height_dif=0.0, arm='left', use_constraint=True)
-  if not arm_ctrl.executePlan(plan):
+  if not arm_ctrl.executePlan(plan, reduce_speed=True):
     print("[kmr19_manipulation_server]: Robot failed during release pose")
     arm_ctrl.moveToInitPosition(arm='left')
     return kmr19_put_downResponse(False)
@@ -150,7 +149,7 @@ def handle_put_down(req):
 
   # plan and execute post release procedure
   plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position, height_dif=h_dif, arm='left', use_constraint=True)
-  if not arm_ctrl.executePlan(plan):
+  if not arm_ctrl.executePlan(plan, reduce_speed=True):
     print("[kmr19_manipulation_server]: Robot failed during post release pose")
     arm_ctrl.moveToInitPosition(arm='left')
     return kmr19_put_downResponse(False)

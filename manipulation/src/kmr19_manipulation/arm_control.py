@@ -6,6 +6,9 @@ import baxter_interface
 from baxter_interface import CHECK_VERSION
 from perception.msg import Block
 import tf
+from math import pi
+from moveit_msgs.msg import Constraints
+from moveit_msgs.msg import OrientationConstraint
 
 class kmr19ArmCtrl:
   def __init__(self):
@@ -31,29 +34,37 @@ class kmr19ArmCtrl:
       group = self.group_l
 
       joint_goal = group.get_current_joint_values()
-      joint_goal[0] = 0
+      joint_goal[0] = -pi/9
       joint_goal[1] = -pi/4
       joint_goal[2] = 0
       joint_goal[3] = pi/2
       joint_goal[4] = 0
       joint_goal[5] = pi/4.5
       joint_goal[6] = 0
+
+      group.go(joint_goal, wait=True)
+      group.stop()
+
+      success = True
     elif (arm == 'right'):
       group = self.group_r
 
       joint_goal = group.get_current_joint_values()
-      joint_goal[0] = 0
+      joint_goal[0] = pi/9
       joint_goal[1] = -pi/4
       joint_goal[2] = 0
       joint_goal[3] = pi/2
       joint_goal[4] = 0
       joint_goal[5] = pi/4.5
       joint_goal[6] = 0
+
+      group.go(joint_goal, wait=True)
+      group.stop()
+
+      success = True
     else:
       print("[kmr19ArmCtrl moveToInitlPosition]: specify which arm should be initialized")
-
-    group.go(joint_goal, wait=True)
-    group.stop()
+      success = False
 
     return success
 
@@ -67,14 +78,16 @@ class kmr19ArmCtrl:
     :return: motion plan for pick up procedure, plan maybe not valid --> check somewhere else
     '''
 
-    group = self.group
+    group = self.group_l
     link = 'left_gripper'
     frame = "left_gripper"
     if(arm == 'right'):
-      group = self.group
+      group = self.group_r
       link = 'right_gripper'
       frame = "right_gripper"
-    
+
+    group.set_planning_time(15.0)
+
     #init target pose
     target_pose = group.get_current_pose(end_effector_link=link).pose
 
@@ -91,16 +104,18 @@ class kmr19ArmCtrl:
 
       #define orientation constraint
       ocm.header.frame_id = "/world"
-      ocm.link_name = 'left_gripper'
+      ocm.link_name = link
       ocm.orientation.y = 1.0
-      ocm.absolute_x_axis_tolerance = 0.05
-      ocm.absolute_y_axis_tolerance = 0.05
-      ocm.absolute_z_axis_tolerance = 0.05
+      ocm.absolute_x_axis_tolerance = 0.1
+      ocm.absolute_y_axis_tolerance = 0.1
+      ocm.absolute_z_axis_tolerance = 0.1
       ocm.weight = 1
 
       #add constraint to planner
       constraints.orientation_constraints.append(ocm)
       group.set_path_constraints(constraints)
+
+      group.set_start_state_to_current_state()
 
     if use_cartesian:
       #cartesian path waypoints
@@ -146,11 +161,13 @@ class kmr19ArmCtrl:
     listener.waitForTransform("world", "table", rospy.Time.now(), rospy.Duration(4.0))
     tmp_pose = listener.transformPose("world", goal_pose)
 
-    group = self.group
+    group = self.group_l
     link = 'left_gripper'
     if (arm == 'right'):
-      group = self.group
+      group = self.group_r
       link = 'right_gripper'
+
+    group.set_planning_time(15.0)
 
     # init target pose
     target_pose = group.get_current_pose(end_effector_link=link).pose
@@ -168,16 +185,18 @@ class kmr19ArmCtrl:
 
       #define orientation constraint
       ocm.header.frame_id = "/world"
-      ocm.link_name = 'left_gripper'
+      ocm.link_name = link
       ocm.orientation.y = 1.0
-      ocm.absolute_x_axis_tolerance = 0.05
-      ocm.absolute_y_axis_tolerance = 0.05
-      ocm.absolute_z_axis_tolerance = 0.05
+      ocm.absolute_x_axis_tolerance = 0.1
+      ocm.absolute_y_axis_tolerance = 0.1
+      ocm.absolute_z_axis_tolerance = 0.1
       ocm.weight = 1
 
       #add constraint to planner
       constraints.orientation_constraints.append(ocm)
       group.set_path_constraints(constraints)
+
+      group.set_start_state_to_current_state()
 
     if use_cartesian:
       # cartesian path waypoints
@@ -208,14 +227,18 @@ class kmr19ArmCtrl:
 
     return plan
 
-  def executePlan(self, plan, arm='left'):
+  def executePlan(self, plan, arm='left', reduce_speed=False):
     success = False
 
-    group = self.group
+    group = self.group_l
     link = 'left_gripper'
     if(arm == 'right'):
-      group = self.group
+      group = self.group_r
       link = 'right_gripper'
+
+    if reduce_speed:
+      group.set_max_acceleration_scaling_factor(0.2)
+      group.set_max_velocity_scaling_factor(0.2)
 
     #check if plan is valid
     if not plan.joint_trajectory.points:
@@ -225,7 +248,11 @@ class kmr19ArmCtrl:
       group.execute(plan, wait=True)
       group.stop()
       group.clear_pose_targets()
+      group.clear_path_constraints()
       success = True
+
+    group.set_max_acceleration_scaling_factor(1)
+    group.set_max_velocity_scaling_factor(1)
 
     return success
 
