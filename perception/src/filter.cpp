@@ -253,43 +253,22 @@ class Filter
     }
 
     /*============================================================================*/
-    /*===== smooth the surfaces ==================================================*/
-    /*============================================================================*/
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr smooth_surfaces(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud)
-    {
-      // Object for storing the point cloud.
-      pcl::PointCloud<pcl::PointXYZRGB>::Ptr output_cloud(new pcl::PointCloud <pcl::PointXYZRGB>);
-
-      // remove nan values
-      std::vector<int> mapping;
-      pcl::removeNaNFromPointCloud(*input_cloud, *input_cloud, mapping);
-
-      // Smoothing object (we choose what point types we want as input and output).
-      pcl::MovingLeastSquares <pcl::PointXYZRGB, pcl::PointXYZRGB> filter;
-      pcl::search::KdTree<pcl::PointXYZRGB>::Ptr kdtree;
-
-      filter.setInputCloud(input_cloud);
-      filter.setSearchRadius(smoothing_radius_);
-      filter.setPolynomialFit(true);
-      filter.setSearchMethod(kdtree);
-
-      filter.process(*output_cloud);
-
-
-      return output_cloud;
-    }
-
-    /*============================================================================*/
     /*===== limit points to table ================================================*/
     /*============================================================================*/
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr limit_points_to_table(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud)
     {
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr removed_nan_cloud(new pcl::PointCloud <pcl::PointXYZRGB>);
+
+      // remove nan values
+      std::vector<int> mapping;
+      pcl::removeNaNFromPointCloud(*input_cloud, *removed_nan_cloud, mapping);
+
       // passthrough filter from pcl
       pcl::PassThrough<pcl::PointXYZRGB> pass;
 
       // filter in z axis
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_filteredZ(new pcl::PointCloud<pcl::PointXYZRGB>);
-      pass.setInputCloud( input_cloud);
+      pass.setInputCloud( removed_nan_cloud);
       pass.setFilterFieldName("z");
       pass.setFilterLimits( table_z_low_, table_z_high_);
       pass.filter( *cloud_filteredZ);
@@ -309,6 +288,41 @@ class Filter
       pass.filter( *cloud_filtered);
 
       return cloud_filtered;
+    }
+
+    /*============================================================================*/
+    /*===== smooth the surfaces ==================================================*/
+    /*============================================================================*/
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr smooth_surfaces(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud)
+    {
+      // Object for storing the point cloud.
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr output_cloud(new pcl::PointCloud <pcl::PointXYZRGB>);
+
+      // Smoothing object (we choose what point types we want as input and output).
+      pcl::MovingLeastSquares <pcl::PointXYZRGB, pcl::PointXYZRGB> filter;
+      pcl::search::KdTree<pcl::PointXYZRGB>::Ptr kdtree;
+
+      filter.setInputCloud(input_cloud);
+      filter.setSearchRadius(smoothing_radius_);
+      filter.setPolynomialFit(true);
+      filter.setSearchMethod(kdtree);
+
+      filter.process(*output_cloud);
+
+      // remove nan values
+     /* pcl::PointCloud<pcl::PointXYZRGB>::Ptr removed_nan_cloud(new pcl::PointCloud <pcl::PointXYZRGB>);
+      boost::shared_ptr<std::vector<int>> indices(new std::vector<int>);
+      pcl::removeNaNFromPointCloud(*output_cloud, *indices);
+      pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+
+      extract.setInputCloud(output_cloud);
+      extract.setIndices(indices);
+      extract.setNegative( false);
+      extract.filter(*removed_nan_cloud);*/
+
+      //ROS_INFO_STREAM( input_cloud->width << " - " << output_cloud->width << " | " << input_cloud->height << " - " << output_cloud->height);
+
+      return output_cloud;
     }
 
     /*============================================================================*/
@@ -369,6 +383,7 @@ class Filter
       hsv_cloud->header = input_cloud->header;
       for( int i = 0; i < input_cloud->points.size(); i++)
       {
+        //ROS_INFO_STREAM( "x " << input_cloud->points.at(i).x << " y " << input_cloud->points.at(i).y << " z " << input_cloud->points.at(i).z);
         hsv_cloud->points.at(i).x = input_cloud->points.at(i).x;
         hsv_cloud->points.at(i).y = input_cloud->points.at(i).y;
         hsv_cloud->points.at(i).z = input_cloud->points.at(i).z;
@@ -455,8 +470,16 @@ class Filter
     std::vector< pcl::PointCloud<pcl::PointXYZHSV>::Ptr >* color_segmentation(
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud)
     {
+
       // return a vector of point cloud pointers. Each pc includes points of one colored cluster
       hsv_cloud_ = rgb_to_hsv( input_cloud);
+
+      //ROS_INFO_STREAM("color_seg - removed nan and rgb to hsv - " << hsv_cloud_->header << " - " << hsv_cloud_->width << " - " << hsv_cloud_->height << " - " << hsv_cloud_->is_dense);
+
+      //ROS_INFO_STREAM("index " << std::to_string(mapping.at(0)) << " length " << mapping.size());
+      /*for( int i = 0; i < hsv_cloud_->points.size(); i++) {
+        ROS_INFO_STREAM( "i " << i << " - " << mapping.at(i) << " x " << hsv_cloud_->points.at(i).x << " y " << hsv_cloud_->points.at(i).y << " z " << hsv_cloud_->points.at(i).z);
+      }*/
 
       std::vector <pcl::PointIndices> clusters_hsv;
       std::vector< pcl::PointCloud<pcl::PointXYZHSV>::Ptr >* cloud_clusters_hsv( new std::vector< pcl::PointCloud<pcl::PointXYZHSV>::Ptr >);
@@ -471,6 +494,8 @@ class Filter
       clustering_hsv.setConditionFunction( &color_condition);
 
       clustering_hsv.segment( clusters_hsv);
+
+      ROS_INFO_STREAM("color_seg - clustered");
 
       // For every cluster...
       int currentClusterNum = 1;
@@ -588,7 +613,7 @@ class Filter
         type = BLOCK_TYP_SMALL_SQUARE; //25x25x50
 
 
-      //ROS_INFO_STREAM( "FILTER: get block type  width " << width << " depth " << depth << " height " << height << " type " << type );
+      ROS_INFO_STREAM( "FILTER: get block type  width " << width << " depth " << depth << " height " << height << " type " << type );
       return type;
     }
 
@@ -702,7 +727,7 @@ class Filter
 
         //TODO evaluate each side of the block
 
-        ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
+        //ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
 
         /*plot_x_distribution( cloud);
         plot_y_distribution( cloud);
@@ -749,7 +774,7 @@ class Filter
         block.color = get_hue_color( hue_mean);
 
         //plot_color_distribution_hsv( cloud);
-        //ROS_INFO_STREAM( "block color " << hue_mean << " nr " << std::to_string(block.color) );
+        ROS_INFO_STREAM( "block color " << hue_mean << " nr " << std::to_string(block.color) );
 
         if(block.color == UNKNOWN_COLOR)
           continue;
@@ -804,10 +829,10 @@ class Filter
       ROS_INFO_STREAM( "FILTER: trimmed_cloud: " << trimmed_cloud_->points.size() );
       if (trimmed_cloud_->points.size() == 0)  return;
 
-      // surface smoothing
+      /*// surface smoothing
       smoothed_cloud_ = smooth_surfaces( trimmed_cloud_);
       ROS_INFO_STREAM( "FILTER: smoothed_cloud: " << smoothed_cloud_->points.size() );
-      if (smoothed_cloud_->points.size() == 0)   return;
+      if (smoothed_cloud_->points.size() == 0)   return;*/
 
       // remove table surface (planar model) from the cloud
       table_removed_cloud_ = plane_segmentation( trimmed_cloud_);
@@ -837,7 +862,7 @@ class Filter
     /*============================================================================*/
     void sensor_msg_callback (const sensor_msgs::PointCloud2ConstPtr& input)
     {
-      int duration = 30;
+      int duration = 60;
       count_ ++;
 
       if( debug_) duration = 1;//00;

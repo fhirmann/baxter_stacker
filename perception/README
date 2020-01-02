@@ -36,7 +36,7 @@ rosrun rviz rviz
 
 for debug function:
 rosrun perception filter debug
-rosbag play -d 0.5 --pause -l src/kmr19/perception/data_world_frame/2019-12-17-17-22-33.bag 
+rosbag play -d 0.5 --pause -l /mnt/A2E4DA99E4DA6ED3/Studium/09_Semester/KMR/data_world_frame/2020-01-02-13-30-49_manyPos_1.bag
 
 
 ====================================================================================================================
