@@ -78,7 +78,6 @@ class Filter
     ros::Publisher  smoothed_pc_pub_;
     ros::Publisher  trimmed_pc_pub_;
     ros::Publisher  table_removed_pc_pub_;
-    ros::Publisher  hsv_pc_pub_;
     ros::Publisher  block1_pc_pub_;
     ros::Publisher  block2_pc_pub_;
     ros::Publisher  block3_pc_pub_;
@@ -886,51 +885,61 @@ class Filter
 
       if( transformed_cloud_ ) {
         transformed_pc_pub_.publish(*transformed_cloud_);
+      }
+
+      if( smoothed_cloud_) {
         smoothed_pc_pub_.publish(*smoothed_cloud_);
+      }
+
+      if( trimmed_cloud_ ) {
         trimmed_pc_pub_.publish(*trimmed_cloud_);
+      }
+
+      if( table_removed_cloud_) {
         table_removed_pc_pub_.publish(*table_removed_cloud_);
+      }
 
-        if(hsv_cloud_)
-          hsv_pc_pub_.publish(*hsv_cloud_);
 
-        //rviz can only display RGB points -> therefore transfer it back to rgb color space
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr rgb_cloud (new pcl::PointCloud<pcl::PointXYZRGB>());
+      //rviz can only display RGB points -> therefore transfer it back to rgb color space
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr rgb_cloud (new pcl::PointCloud<pcl::PointXYZRGB>());
 
+
+      if( color_clusters_!= nullptr) {
         if (color_clusters_->size() >= 1) {
-          rgb_cloud = hsv_to_rgb( color_clusters_->at(0));
+          rgb_cloud = hsv_to_rgb(color_clusters_->at(0));
           block1_pc_pub_.publish(rgb_cloud);
         }
         if (color_clusters_->size() >= 2) {
-          rgb_cloud = hsv_to_rgb( color_clusters_->at(1));
+          rgb_cloud = hsv_to_rgb(color_clusters_->at(1));
           block2_pc_pub_.publish(rgb_cloud);
         }
         if (color_clusters_->size() >= 3) {
-          rgb_cloud = hsv_to_rgb( color_clusters_->at(2));
+          rgb_cloud = hsv_to_rgb(color_clusters_->at(2));
           block3_pc_pub_.publish(rgb_cloud);
         }
         if (color_clusters_->size() >= 4) {
-          rgb_cloud = hsv_to_rgb( color_clusters_->at(3));
+          rgb_cloud = hsv_to_rgb(color_clusters_->at(3));
           block4_pc_pub_.publish(rgb_cloud);
         }
         if (color_clusters_->size() >= 5) {
-          rgb_cloud = hsv_to_rgb( color_clusters_->at(4));
+          rgb_cloud = hsv_to_rgb(color_clusters_->at(4));
           block5_pc_pub_.publish(rgb_cloud);
         }
+      }
 
-        if ( b1_top_) {
-          rgb_cloud = hsv_to_rgb( b1_top_);
-          block1_top_pc_pub_.publish(rgb_cloud);
-        }
+      if ( b1_top_) {
+        rgb_cloud = hsv_to_rgb( b1_top_);
+        block1_top_pc_pub_.publish(rgb_cloud);
+      }
 
-        if ( b1_left_) {
-          rgb_cloud = hsv_to_rgb( b1_left_);
-          block1_top_pc_pub_.publish(rgb_cloud);
-        }
+      if ( b1_left_) {
+        rgb_cloud = hsv_to_rgb( b1_left_);
+        block1_top_pc_pub_.publish(rgb_cloud);
+      }
 
-        if ( b1_right_) {
-          rgb_cloud = hsv_to_rgb( b1_right_);
-          block1_top_pc_pub_.publish(rgb_cloud);
-        }
+      if ( b1_right_) {
+        rgb_cloud = hsv_to_rgb( b1_right_);
+        block1_top_pc_pub_.publish(rgb_cloud);
       }
     }
 
@@ -1068,6 +1077,8 @@ class Filter
       block_plane_min_points_(30),
       block_type_tol_(0.01)
     {
+      color_clusters_ = nullptr;
+
       //ROS_INFO_STREAM( "FILTER: start constructor" );
       hue_red_   = 355;
       hue_blue_  = 220;
@@ -1103,7 +1114,6 @@ class Filter
       smoothed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_smoothed", 1);
       trimmed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_trimmed", 1);
       table_removed_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_table_removed", 1);
-      hsv_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZHSV>>("/filter_hsv", 1);
       block1_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block1", 1);
       block2_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block2", 1);
       block3_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block3", 1);
