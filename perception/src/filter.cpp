@@ -694,6 +694,10 @@ class Filter
           b1_top_   = top;
           b1_left_  = left;
           b1_right_ = right;
+
+          b1_top_->header = cloud->header;
+          b1_left_->header = cloud->header;
+          b1_right_->header = cloud->header;
         }
 
         //TODO evaluate each side of the block
@@ -934,12 +938,12 @@ class Filter
 
       if ( b1_left_) {
         rgb_cloud = hsv_to_rgb( b1_left_);
-        block1_top_pc_pub_.publish(rgb_cloud);
+        block1_left_pc_pub_.publish(rgb_cloud);
       }
 
       if ( b1_right_) {
         rgb_cloud = hsv_to_rgb( b1_right_);
-        block1_top_pc_pub_.publish(rgb_cloud);
+        block1_right_pc_pub_.publish(rgb_cloud);
       }
     }
 
