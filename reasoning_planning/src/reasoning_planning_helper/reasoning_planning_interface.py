@@ -121,12 +121,11 @@ def get_scene_and_store_in_db():
         msg_store = MessageStoreProxy()
 
         listener = tf.TransformListener()
-        
 
         for block in result.blocks:
-
             listener.waitForTransform("table", block.pose.header.frame_id, rospy.Time(), rospy.Duration(4.0) )
-
+            now = rospy.Time.now()
+            listener.waitForTransform("table", block.pose.header.frame_id, now, rospy.Duration(4.0) )
             tmp_pose = listener.transformPose("table", block.pose)
 
             block.pose = tmp_pose
@@ -253,6 +252,6 @@ def get_all_blocks_from_db():
 def add_init_knowledge():
     update_fact_hand_empty(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE)
     # add one extra location for temporary moving to that position
-    add_location('loc_temp', 0.1, 0.6) # TODO: set some good position for this temporary location
+    add_location('loc_temp', 0.24, 0.85) # set some good position for this temporary location
     update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'loc_temp')
 
