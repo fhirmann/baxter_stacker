@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+
+    <node name="parser_client_node" pkg="speech_recognition" type="parser_client_node.py" respawn="false" output="screen"/>
+    <node name="speech_request_node" pkg="speech_recognition" type="speech_request_node.py" respawn="false" output="screen"/>
+    
+</launch>
