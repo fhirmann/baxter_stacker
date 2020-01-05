@@ -10,12 +10,15 @@ You will need to set up the path in the .bashrc by writing :
 
 We base our program on the Google Speech API and some other python libraries. We will store them in a virtual environment
 Follow the steps to set up the virtual environment and installing the API as indicated here : https://cloud.google.com/python/setup
+We're working with python3 here, so install pip3 and everytime it says to do a "pip", do a "pip3" instead.
+If you want, you don't have to set up and install the programs in a virtual environment so you can skip some steps.
 
-You will probably have to install more libraries to make it work, especially portaudio, pyaudio, pyyaml, rospkg. Install them in the environment.
+Once the python environment is set up, install the speech-to-text python libraries with : `pip3 install --upgrade google-cloud-speech`
+You will probably have to install more libraries to make it work, especially portaudio, pyaudio, pyyaml, rospkg. Install them in the virtual environment if you chose to work with that.
 
-Reminder, the programs will only work in this virtual environment. So when using the nodes, be sure to have executed the command :
+Reminder, if you use the virtual environment to install your python libraries, when using the nodes be sure to have executed the command :
 `source env/bin/activate`
-To leave the environment, just do `deactivate`
+To leave the virtual environment, just do `deactivate`
 
 Nodes should be already set as executables. If not, go in the nodes folder and do :
 `chmod +x speech_request_node.py` and `chmod +x parser_client_node.py`
