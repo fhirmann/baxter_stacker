@@ -1,0 +1,5 @@
+string speechRequest
+
+---
+
+int8[] errorsResponse #array of 3 values, first one being top block, second is below block, third one is general errors

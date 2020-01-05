@@ -6,7 +6,7 @@ from nltk.parse import CoreNLPParser
 import nltk
 
 from reasoning_planning.srv import StackGoalService, StackGoalServiceResponse, StackGoalServiceRequest
-
+from speech_recognition.srv import CommSpeechParser, CommSpeechParserResponse, CommSpeechParserRequest
 from std_msgs.msg import String
 
 parser = CoreNLPParser(url='http://localhost:9000')
@@ -74,6 +74,13 @@ def getRequestList(tree):
     final_list = [action, top_block, position, below_block]
     return(final_list)
 
+def responseHandler(res):
+    resParser = CommSpeechParserResponse()
+    resParser.errorsResponse.append(res.top_block_error)
+    resParser.errorsResponse.append(res.below_block_error)
+    resParser.errorsResponse.append(res.general_error)
+    return resParser
+
 #Sends the finalized request to the service
 def sendToService(req):
 
@@ -90,7 +97,9 @@ def sendToService(req):
 
     rospy.loginfo("response:")
     print (response)
- 
+    
+    return responseHandler(response)
+        
 #Callback function from the listener. Applies the Stanford Parser and creates the request
 def parse_create_scene(data):
     global action, top_block, position, below_block
@@ -99,8 +108,8 @@ def parse_create_scene(data):
     below_block = []
     position = []
     
-    rospy.loginfo(rospy.get_caller_id() + "I heard : %s", data.data)
-    request_parsed = list(parser.parse(data.data.split()))
+    rospy.loginfo(rospy.get_caller_id() + "I heard : %s", data.speechRequest)
+    request_parsed = list(parser.parse(data.speechRequest.split()))
     request_list = getRequestList(request_parsed)
     print(request_list)
     
@@ -112,7 +121,7 @@ def parse_create_scene(data):
     print(req.top_block_semantics)
     print(req.below_block_semantics)
     
-    sendToService(req)
+    return sendToService(req)
 
 def listener():
 
@@ -121,9 +130,9 @@ def listener():
     # anonymous=True flag means that rospy will choose a unique
     # name for our 'listener' node so that multiple listeners can
     # run simultaneously.
-    rospy.init_node('listener', anonymous=True)
+    rospy.init_node('speech_parser_request_server', anonymous=True)
 
-    rospy.Subscriber("speech_request", String, parse_create_scene)
+    rospy.Service("speech_parser_request", CommSpeechParser, parse_create_scene)
 
     # spin() simply keeps python from exiting until this node is stopped
     rospy.spin()

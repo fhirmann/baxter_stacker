@@ -15,6 +15,9 @@ from google.cloud.speech import types
 import pyaudio
 from six.moves import queue
 
+from reasoning_planning.srv import StackGoalService, StackGoalServiceResponse, StackGoalServiceRequest
+from speech_recognition.srv import CommSpeechParser, CommSpeechParserResponse, CommSpeechParserRequest
+
 # Audio recording parameters
 RATE = 16000
 CHUNK = int(RATE / 10)  # 100ms
@@ -83,13 +86,51 @@ class MicrophoneStream(object):
 
             yield b''.join(data)
 
+def responseHandler(listOfErrors):
+    
+    responseToUser = ""
+    indexInList = 0
+    nbErrors = 0
+    for error in listOfErrors:
+        
+        if (error != 0):
+            if (indexInList == 0):
+                responseToUser += "\nTOP BLOCK : "
+            elif (indexInList == 1):
+                responseToUser += "\nBELOW BLOCK : "
+            elif (indexInList == 2):
+                responseToUser += "\nGENERAL REQUEST : "
+            
+            if (error == 1):
+                responseToUser += "Multiple same objects are defined. Be more precise about the scene."
+            elif (error == 2):
+                responseToUser += "No object found. Are you sure it is on the scene ?"    
+            elif (error == 3):
+                responseToUser += "Request unsolvable. Please do another request or be more precise."
+            elif (error == 4):
+                responseToUser += "Other error. Please try again or do another request."
+            elif (error == 5):
+                responseToUser += "Blocks unsuccessfully received from perception. Check camera."
+            elif (error == 6):
+                responseToUser += "Less than two blocks on the scene. Action impossible."
+            nbErrors += 1
+        indexInList += 1
+        
+    if (nbErrors == 0):
+        responseToUser += "This is a valid request."
+            
+        
+        
+    return responseToUser
+                
+                
 def publish_request(our_request):
-    pub = rospy.Publisher('speech_request', String, queue_size=10)
-    rospy.init_node('speech_request', anonymous=True)
-    if not rospy.is_shutdown():
-        rospy.loginfo(our_request)
-        pub.publish(our_request)
-    return 1
+    rospy.wait_for_service("speech_parser_request")
+    speech_parser_request = rospy.ServiceProxy('speech_parser_request', CommSpeechParser)
+    resp = speech_parser_request(our_request)
+    
+    print(responseHandler(resp.errorsResponse))
+    return resp
 
 
 def listen_print_loop(responses):
@@ -149,8 +190,10 @@ def listen_print_loop(responses):
             
             if (publish_next_request):
                 #Publishing
+                print("Request sent\n")
                 publish_request(transcript)
-                print("Request published\n")
+                print("\nReady for a new request...\n")
+                
                 publish_next_request = False
                 
             if re.search(r'\b(hello Baxter| Hello Baxter)\b', transcript, re.I):
