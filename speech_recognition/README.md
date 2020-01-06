@@ -39,16 +39,26 @@ You will also need some libraries such as nltk. After activating your virtual en
 In a separate terminal, go inside the StanfordNLP folder and launch the NLP server in the background with the command :
 `java -mx4g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer -port 9000 -timeout 15000`
 
+## Set up the Text to speech environment ##
+Finally, you will need to install the programs and libraries to handle the text to speech
+You will need to install sox :
+`sudo apt-get install sox soxlib-fmt-mp3`
+
+And install google text to speech for python with :
+`pip3 install gTTs`
+
 ## How it works ##
 
 Launch the commands `roscore`, `rosrun speech_recognition speech_request_node.py` and `rosrun speech_recognition parser_client_node.py` in 3 different terminals. Don't forget the `source devel/setup.bash` from the catkin workspace if you don't see the nodes.
 
 Remark : The speech recognition node will close itself after 305 seconds.
 
-When the user will say "hello Baxter", the speech recog node will print "Listening...". This means that the next request will be sent to the other node, the subscriber. You always have to say "hello Baxter" and to wait for the "Listening..." message before sending a request.
+When the user will say "hello Baxter", the speech recog node will print qnd say "Listening...". This means that the next request will be sent to the other node, the subscriber. You always have to say "hello Baxter" and to wait for the "Listening..." message before sending a request.
 
 The request will be parsed and set up with correct semantics to be sent to the reasoning and planning part.
 
+You will be returned a printed and voice message telling if the request is correct or has errors
+
 ## TODO ##
 
-Install everything on the master PC and check with the others if it's correctly integrated in the pipeline
+Add the stanford server to the launch file

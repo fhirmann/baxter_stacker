@@ -6,6 +6,7 @@ import re
 import sys
 import os
 import rospy
+import subprocess
 
 from std_msgs.msg import String
 
@@ -86,6 +87,11 @@ class MicrophoneStream(object):
 
             yield b''.join(data)
 
+def textToSpeech(s):
+    ps = subprocess.Popen(('gtts-cli', s), stdout=subprocess.PIPE)
+    output = subprocess.Popen(('play', '-t', "mp3","-"), stdin=ps.stdout)
+    ps.wait()
+
 def responseHandler(listOfErrors):
     
     responseToUser = ""
@@ -119,7 +125,7 @@ def responseHandler(listOfErrors):
     if (nbErrors == 0):
         responseToUser += "This is a valid request."
             
-        
+    textToSpeech(responseToUser)   
         
     return responseToUser
                 
@@ -198,6 +204,8 @@ def listen_print_loop(responses):
                 
             if re.search(r'\b(hello Baxter| Hello Baxter)\b', transcript, re.I):
                 publish_next_request = True
+                
+                textToSpeech("I am listening")
                 print("Listening ...\n")
             
             num_chars_printed = 0
