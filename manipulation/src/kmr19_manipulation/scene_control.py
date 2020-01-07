@@ -56,9 +56,23 @@ class kmr19SceneControl:
     return self.checkObject(3, block_name, obj_is_attached=False, obj_is_known=False)
 
   def addBlockToPlanningScene(self, block):
+    block_frame = block.pose.header.frame_id
+
+    #tf setup
+    listener = tf.TransformListener()
+    listener.waitForTransform("world", block_frame, rospy.Time(), rospy.Duration(4.0))
+
+    #get transformation
+    now = rospy.Time.now()
+    listener.waitForTransform("world", block_frame, now, rospy.Duration(4.0))
+    tmp_pose = listener.transformPose("world", block.pose)
+
+    block.pose = tmp_pose
+    self.scene_blocks.append(block)
+
     name = str(block.id)
     # add to MoveIt scene
-    self.scene.add_box(name, block.pose, size=(block.depth, block.width, block.height))
+    self.scene.add_box(name, tmp_pose, size=(block.depth, block.width, block.height))
     # wait until scene is changed
     return self.checkObject(3, name, obj_is_attached=False, obj_is_known=True)
 
@@ -107,8 +121,6 @@ class kmr19SceneControl:
 
   def loadSceneDatabase(self):
     msg_store = MessageStoreProxy()
-    listener = tf.TransformListener()
-    listener.waitForTransform("world", "table", rospy.Time(), rospy.Duration(4.0))
 
     #empty scene objects
     del self.scene_blocks[:]
@@ -117,12 +129,6 @@ class kmr19SceneControl:
 
     #add blocks from database to MoveIt scene
     for (block, meta) in data:
-      now = rospy.Time.now()
-      listener.waitForTransform("world", "table", now, rospy.Duration(4.0))
-      tmp_pose = listener.transformPose("world", block.pose)
-      block.pose = tmp_pose
-
-      self.scene_blocks.append(block)
       self.addBlockToPlanningScene(block=block)
 
 

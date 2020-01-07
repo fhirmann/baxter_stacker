@@ -98,6 +98,9 @@ class kmr19ArmCtrl:
     target_pose.orientation.w = 0
 
     if use_constraint:
+      group.set_max_velocity_scaling_factor(0.1)
+      group.set_max_acceleration_scaling_factor(0.1)
+
       #generate constraints and orientation constraint object
       constraints = Constraints()
       ocm = OrientationConstraint()
@@ -108,12 +111,12 @@ class kmr19ArmCtrl:
       ocm.orientation.y = 1.0
       ocm.absolute_x_axis_tolerance = 0.1
       ocm.absolute_y_axis_tolerance = 0.1
-      ocm.absolute_z_axis_tolerance = 0.1
+      ocm.absolute_z_axis_tolerance = 2*pi
       ocm.weight = 1
 
       #add constraint to planner
-      constraints.orientation_constraints.append(ocm)
-      group.set_path_constraints(constraints)
+      #constraints.orientation_constraints.append(ocm)
+      #group.set_path_constraints(constraints)
 
       group.set_start_state_to_current_state()
 
@@ -133,7 +136,7 @@ class kmr19ArmCtrl:
 
       #compute path
       (plan, fraction) = group.compute_cartesian_path(waypoints,  # waypoints to follow
-                                                      0.01,       # eef_step
+                                                      0.001,       # eef_step
                                                       0.0)        # jump_threshold
     else:
       target_pose.position.x = block_pose.pose.position.x
@@ -179,6 +182,9 @@ class kmr19ArmCtrl:
     target_pose.orientation.w = 0
 
     if use_constraint:
+      group.set_max_velocity_scaling_factor(0.1)
+      group.set_max_acceleration_scaling_factor(0.1)
+
       #generate constraints and orientation constraint object
       constraints = Constraints()
       ocm = OrientationConstraint()
@@ -189,12 +195,12 @@ class kmr19ArmCtrl:
       ocm.orientation.y = 1.0
       ocm.absolute_x_axis_tolerance = 0.1
       ocm.absolute_y_axis_tolerance = 0.1
-      ocm.absolute_z_axis_tolerance = 0.1
+      ocm.absolute_z_axis_tolerance = 2*pi
       ocm.weight = 1
 
       #add constraint to planner
-      constraints.orientation_constraints.append(ocm)
-      group.set_path_constraints(constraints)
+      #constraints.orientation_constraints.append(ocm)
+      #group.set_path_constraints(constraints)
 
       group.set_start_state_to_current_state()
 
@@ -213,7 +219,7 @@ class kmr19ArmCtrl:
 
       # compute path
       (plan, fraction) = group.compute_cartesian_path(waypoints,  # waypoints to follow
-                                                      0.01,  # eef_step
+                                                      0.001,  # eef_step
                                                       0.0)  # jump_threshold
     else:
       target_pose.position.x = tmp_pose.pose.position.x
@@ -262,7 +268,11 @@ class kmr19ArmCtrl:
       self.left_gripper.reboot()
       self.left_gripper.calibrate(block=block)
       self.left_gripper.close(block=block)
-      self.left_gripper_close_pos = self.left_gripper.position()
+      
+      rospy.sleep(1.0)
+      for i in range(0, 10):
+       self.left_gripper_close_pos += self.left_gripper.position()
+       self.left_gripper_close_pos /= 10
 
       if gripper_open:
         self.left_gripper.open(block=block)
@@ -274,7 +284,11 @@ class kmr19ArmCtrl:
       self.right_gripper.reboot()
       self.right_gripper.calibrate(block=block)
       self.right_gripper.close(block=block)
-      self.right_gripper_close_pos = self.right_gripper.position()
+
+      rospy.sleep(1.0)
+      for i in range(0, 10):
+       self.right_gripper_close_pos += self.right_gripper.position()
+       self.right_gripper_close_pos /= 10
 
       if gripper_open:
         self.right_gripper.open(block=block)
@@ -289,7 +303,7 @@ class kmr19ArmCtrl:
 
     if(arm == 'left'):
       self.left_gripper.set_holding_force(80.0)
-      self.left_gripper.set_velocity(10.0)
+      self.left_gripper.set_velocity(1.0)
       self.left_gripper.set_moving_force(80.0)
 
       for i in range(0, 80):
@@ -300,7 +314,7 @@ class kmr19ArmCtrl:
 
     elif(arm=='right'):
       self.right_gripper.set_holding_force(80.0)
-      self.right_gripper.set_velocity(10.0)
+      self.right_gripper.set_velocity(1.0)
       self.right_gripper.set_moving_force(80.0)
 
       for i in range(0, 101):
@@ -308,6 +322,7 @@ class kmr19ArmCtrl:
 
       if(self.right_gripper.position() > self.right_gripper_close_pos*1.2):
         success = True
+
     else:
       print("[kmr19ArmCtrl pickupBlock]: specify which arm should pickup block")
 
@@ -346,7 +361,7 @@ class kmr19ArmCtrl:
   def releaseBlock(self, arm='left'):
     if(arm == 'left'):
       self.left_gripper.set_holding_force(80.0)
-      self.left_gripper.set_velocity(10.0)
+      self.left_gripper.set_velocity(1.0)
       self.left_gripper.set_moving_force(80.0)
 
       current_pos = self.left_gripper.position() + 1
@@ -355,9 +370,9 @@ class kmr19ArmCtrl:
 
     if(arm == 'right'):
       self.right_gripper.set_holding_force(80.0)
-      self.right_gripper.set_velocity(10.0)
+      self.right_gripper.set_velocity(1.0)
       self.right_gripper.set_moving_force(80.0)
-
+      
       current_pos = self.right_gripper.position() + 1
       for i in range(int(current_pos), 101):
         self.right_gripper.command_position(position=float(i), block=True)

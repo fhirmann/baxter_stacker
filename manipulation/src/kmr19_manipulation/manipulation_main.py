@@ -47,7 +47,7 @@ def handle_pick_up(req):
     return kmr19_pick_upResponse(False)
 
   h_dif = block.height
-
+  
   #plan and execute pre grasp procedure
   plan = arm_ctrl.planBlockPickup(block_pose=block.pose, height_dif=h_dif, arm='left')
   if not arm_ctrl.executePlan(plan):
@@ -157,6 +157,7 @@ def handle_put_down(req):
 
   #change position of block
   arm_ctrl.l_block.pose = req.end_position
+  arm_ctrl.l_block.pose.pose.orientation.w = 1.0
 
   # add block to scene
   if not scene_ctrl.addBlockToPlanningScene(arm_ctrl.l_block):

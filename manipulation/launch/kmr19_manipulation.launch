@@ -18,6 +18,6 @@
   </include>
 
   <!-- run manipulation server -->
-  <node name="kmr19_manipulation_node" pkg="manipulation" type="kmr19_manipulation_node.py" respawn="false" />
+  <!--node name="kmr19_manipulation_node" pkg="manipulation" type="kmr19_manipulation_node.py" respawn="false" /-->
  
 </launch>
