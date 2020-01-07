@@ -38,14 +38,15 @@
 
 #define UNKNOWN_COLOR 100
 
-#define BLOCK_TYP_BIG_SQUARE   1 //40x40x80
-#define BLOCK_TYP_BIG_SLIM     2 //20x40x80
-#define BLOCK_TYP_CUBE         3 //40x40x40
-#define BLOCK_TYP_SMALL_SQUARE 4 //25x25x50
-#define BLOCK_TYP_UNKNOWN      10
+#define BLOCK_TYPE_BIG_SQUARE   1 //40x40x80
+#define BLOCK_TYPE_BIG_SLIM     2 //20x40x80
+#define BLOCK_TYPE_CUBE         3 //40x40x40
+#define BLOCK_TYPE_SMALL_SQUARE 4 //25x25x50
+#define BLOCK_TYPE_UNKNOWN      10
 
-struct Blocksize
+struct BLOCK_TYPE
 {
+  int id;
   double width;
   double depth;
   double height;
@@ -117,7 +118,8 @@ class Filter
     int    block_plane_max_iterations_;
     int    block_plane_min_points_;
 
-    Blocksize big_square_, big_slim_, cube_, small_square_;
+    //Blocksize big_square_, big_slim_, cube_, small_square_;
+    std::vector<BLOCK_TYPE> block_types_;
     double block_type_tol_;
 
     pcl::visualization::PCLPlotter *plot1_, *plot2_, *plot3_, *plot4_, *plot5_, *plot6_;
@@ -171,45 +173,58 @@ class Filter
       if(!nh_.getParam("/filter/block_plane_max_iterations",   block_plane_max_iterations_))   ok = false;
       if(!nh_.getParam("/filter/block_plane_min_points",       block_plane_min_points_))       ok = false;
 
+      block_types_.clear();
       std::vector<double> param_list;
+      BLOCK_TYPE big_square;
       if( nh_.getParam("/filter/block_type_big_square", param_list))
       {
-        big_square_.width  = param_list[0];
-        big_square_.depth  = param_list[1];
-        big_square_.height = param_list[2];
+        big_square.width  = param_list[0];
+        big_square.depth  = param_list[1];
+        big_square.height = param_list[2];
+        big_square.id = BLOCK_TYPE_BIG_SQUARE;
+        block_types_.push_back(big_square);
       }
       else
         ok = false;
 
       //ROS_INFO_STREAM(" load_param: ok5 " << ok);
 
+      BLOCK_TYPE big_slim;
       if( nh_.getParam("/filter/block_type_big_slim", param_list))
       {
-        big_slim_.width  = param_list[0];
-        big_slim_.depth  = param_list[1];
-        big_slim_.height = param_list[2];
+        big_slim.width  = param_list[0];
+        big_slim.depth  = param_list[1];
+        big_slim.height = param_list[2];
+        big_slim.id = BLOCK_TYPE_BIG_SLIM;
+        block_types_.push_back(big_slim);
       }
       else
         ok = false;
 
       //ROS_INFO_STREAM(" load_param: ok6 " << ok);
 
+      BLOCK_TYPE cube;
       if( nh_.getParam("/filter/block_type_cube", param_list))
       {
-        cube_.width  = param_list[0];
-        cube_.depth  = param_list[1];
-        cube_.height = param_list[2];
+        cube.width  = param_list[0];
+        cube.depth  = param_list[1];
+        cube.height = param_list[2];
+        cube.id = BLOCK_TYPE_CUBE;
+        block_types_.push_back(cube);
       }
       else
         ok = false;
 
       //ROS_INFO_STREAM(" load_param: ok7 " << ok);
 
+      BLOCK_TYPE small_square;
       if( nh_.getParam("/filter/block_type_small_square", param_list))
       {
-        small_square_.width  = param_list[0];
-        small_square_.depth  = param_list[1];
-        small_square_.height = param_list[2];
+        small_square.width  = param_list[0];
+        small_square.depth  = param_list[1];
+        small_square.height = param_list[2];
+        small_square.id = BLOCK_TYPE_SMALL_SQUARE;
+        block_types_.push_back(small_square);
       }
       else
         ok = false;
@@ -527,11 +542,10 @@ class Filter
     /*============================================================================*/
     /*====== extract position orientation and color of the objects ===============*/
     /*============================================================================*/
-    void cloud_statistics( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud,
+    void cloud_statistics_size( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud,
                            double* x_min, double* x_max, double* x_mean,
                            double* y_min, double* y_max, double* y_mean,
-                           double* z_min, double* z_max, double* z_mean,
-                           double* hue_min, double* hue_max, double* hue_mean)
+                           double* z_min, double* z_max, double* z_mean)
     {
       int N = cloud->points.size();
 
@@ -547,10 +561,6 @@ class Filter
       *z_max = cloud->points.at(0).z;
       *z_mean = 0.0;
 
-      *hue_min = cloud->points.at(0).h;
-      *hue_max = cloud->points.at(0).h;
-      *hue_mean = 0.0;
-
       for(int j = 0; j < N; j++)
       {
         *x_min = std::min( *x_min, (double)cloud->points.at(j).x);
@@ -564,7 +574,33 @@ class Filter
         *z_min = std::min( *z_min, (double)cloud->points.at(j).z);
         *z_max = std::max( *z_max, (double)cloud->points.at(j).z);
         *z_mean += cloud->points.at(j).z;
+      }
 
+      *x_mean = *x_mean / N;
+      *y_mean = *y_mean / N;
+      *z_mean = *z_mean / N;
+
+      /*ROS_INFO_STREAM( "FILTER:  x min: " << *x_min << " mean: " << *x_mean <<
+                                          " max: " << *x_max );
+      ROS_INFO_STREAM( "FILTER:  y min: " << *y_min << " mean: " << *y_mean <<
+                                          " max: " << *y_max );
+      ROS_INFO_STREAM( "FILTER:  z min: " << *z_min << " mean: " << *z_mean <<
+                                          " max: " << *z_max );
+      ROS_INFO_STREAM( "FILTER:  hue min: " << *hue_min << " mean: " << *hue_mean <<
+                                          " max: " << *hue_max );*/
+    }
+
+    void cloud_statistics_color( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud,
+                           double* hue_min, double* hue_max, double* hue_mean)
+    {
+      int N = cloud->points.size();
+
+      *hue_min = cloud->points.at(0).h;
+      *hue_max = cloud->points.at(0).h;
+      *hue_mean = 0.0;
+
+      for(int j = 0; j < N; j++)
+      {
         *hue_min = std::min( *hue_min, (double)cloud->points.at(j).h);
         *hue_max = std::max( *hue_max, (double)cloud->points.at(j).h);
 
@@ -574,9 +610,6 @@ class Filter
           *hue_mean += cloud->points.at(j).h;
       }
 
-      *x_mean = *x_mean / N;
-      *y_mean = *y_mean / N;
-      *z_mean = *z_mean / N;
       *hue_mean = *hue_mean / N;
 
       /*ROS_INFO_STREAM( "FILTER:  x min: " << *x_min << " mean: " << *x_mean <<
@@ -591,31 +624,40 @@ class Filter
 
     int get_block_type( double width, double height, double depth)
     {
-      int type = BLOCK_TYP_UNKNOWN;
+      int type_id = BLOCK_TYPE_UNKNOWN;
 
-      if( width  < ( big_square_.width  + block_type_tol_ ) && width  > ( big_square_.width  - block_type_tol_ ) &&
-          depth  < ( big_square_.depth  + block_type_tol_ ) && depth  > ( big_square_.depth  - block_type_tol_ ) &&
-          height < ( big_square_.height + block_type_tol_ ) && height > ( big_square_.height - block_type_tol_ ))
-        type = BLOCK_TYP_BIG_SQUARE; //40x40x80
+      for (auto &block_type : block_types_) {
+        if (((width  < (block_type.width + block_type_tol_)  && width  > (block_type.width - block_type_tol_) &&
+              depth  < (block_type.depth + block_type_tol_)  && depth  > (block_type.depth - block_type_tol_)) ||
+             (depth  < (block_type.width + block_type_tol_)  && depth  > (block_type.width - block_type_tol_) &&
+              width  < (block_type.depth + block_type_tol_)  && width  > (block_type.depth - block_type_tol_)))&&
+            height < (block_type.height + block_type_tol_) && height > (block_type.height - block_type_tol_))
+          type_id = block_type.id;
+      }
 
-      if( width  < ( big_slim_.width  + block_type_tol_ ) && width  > ( big_slim_.width  - block_type_tol_ ) &&
-          depth  < ( big_slim_.depth  + block_type_tol_ ) && depth  > ( big_slim_.depth  - block_type_tol_ ) &&
-          height < ( big_slim_.height + block_type_tol_ ) && height > ( big_slim_.height - block_type_tol_ ))
-        type = BLOCK_TYP_BIG_SLIM; //20x40x80
+      ROS_INFO_STREAM( "FILTER: get block type  width " << width << " depth " << depth << " height " << height << " type " << type_id );
+      return type_id;
+    }
 
-      if( width  < ( cube_.width  + block_type_tol_ ) && width  > ( cube_.width  - block_type_tol_ ) &&
-          depth  < ( cube_.depth  + block_type_tol_ ) && depth  > ( cube_.depth  - block_type_tol_ ) &&
-          height < ( cube_.height + block_type_tol_ ) && height > ( cube_.height - block_type_tol_ ))
-        type = BLOCK_TYP_CUBE; //40x40x40
+    int get_block_type_from_front( double width, double height, double* depth)
+    {
+      int type_id = BLOCK_TYPE_UNKNOWN;
 
-      if( width  < ( small_square_.width  + block_type_tol_ ) && width  > ( small_square_.width  - block_type_tol_ ) &&
-          depth  < ( small_square_.depth  + block_type_tol_ ) && depth  > ( small_square_.depth  - block_type_tol_ ) &&
-          height < ( small_square_.height + block_type_tol_ ) && height > ( small_square_.height - block_type_tol_ ))
-        type = BLOCK_TYP_SMALL_SQUARE; //25x25x50
+      for (auto &block_type : block_types_) {
 
+        //ROS_INFO_STREAM( "FILTER: get block type from front  width " << block_type.width << " - " << width << " depth " << block_type.depth << " - " << *depth << " height " << block_type.height << " - " << height );
 
-      ROS_INFO_STREAM( "FILTER: get block type  width " << width << " depth " << depth << " height " << height << " type " << type );
-      return type;
+        if((width  < (block_type.width + block_type_tol_)  && width  > (block_type.width - block_type_tol_) ||
+            width  < (block_type.depth + block_type_tol_)  && width  > (block_type.depth - block_type_tol_))&&
+            height < (block_type.height + block_type_tol_) && height > (block_type.height - block_type_tol_) &&
+            type_id == BLOCK_TYPE_UNKNOWN) {
+          type_id = block_type.id;
+          *depth = block_type.depth;
+        }
+      }
+
+      ROS_INFO_STREAM( "FILTER: get block type from front  width " << width << " depth " << *depth << " height " << height << " type " << type_id );
+      return type_id;
     }
 
     void split_block_into_planes( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud, pcl::PointCloud<pcl::PointXYZHSV>::Ptr top,
@@ -728,51 +770,96 @@ class Filter
 
         //TODO evaluate each side of the block
 
-        //ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
+        ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
 
 
         /*plot_x_distribution( cloud);
         plot_y_distribution( cloud);
         plot_z_distribution( cloud);*/
 
-        // get statistic values
-        double x_min, x_max, x_mean;
-        double y_min, y_max, y_mean;
-        double z_min, z_max, z_mean;
-        double hue_min, hue_max, hue_mean;
+        if( left->points.size() > 0 && top->points.size() == 0)
+        {
+          //only front plane available
 
-        cloud_statistics( cloud,  &x_min, &x_max,  &x_mean,  &y_min,   &y_max, &y_mean,
-                          &z_min, &z_max, &z_mean, &hue_min, &hue_max, &hue_mean);
+          // get statistic values
+          double x_min, x_max, x_mean;
+          double y_min, y_max, y_mean;
+          double z_min, z_max, z_mean;
 
-        // extract size and check if plausible
-        block.width = x_max - x_min;
-        block.depth = y_max - y_min;
-        block.height = z_max - z_min;
+          cloud_statistics_size(left, &x_min, &x_max, &x_mean, &y_min, &y_max, &y_mean, &z_min, &z_max, &z_mean);
 
-        block.type = get_block_type( block.width, block.height, block.depth);
+          // extract size and check if plausible
+          block.width = std::max( (x_max - x_min), (y_max - y_min));
+          //block.depth = y_max - y_min;
+          block.height = z_max - z_min;
 
-        if( block.type == BLOCK_TYP_UNKNOWN)
-          continue;
+          block.type = get_block_type_from_front(block.width, block.height, &block.depth);
 
-        // extract position and orientation
-        geometry_msgs::PoseStamped poseStamped;
-        poseStamped.header.frame_id = GLOBAL_FRAME_ID;
-        poseStamped.header.stamp = ros::Time::now();
+          if (block.type == BLOCK_TYPE_UNKNOWN)
+            continue;
 
-        poseStamped.pose.position.x = x_mean;
-        poseStamped.pose.position.y = y_mean;
-        poseStamped.pose.position.z = z_mean;
+          // extract position and orientation
+          geometry_msgs::PoseStamped poseStamped;
+          poseStamped.header.frame_id = GLOBAL_FRAME_ID;
+          poseStamped.header.stamp = ros::Time::now();
 
-        double theta = 0.0;
-        tf::Quaternion q = tf::createQuaternionFromRPY(0 , 0, theta);
-        poseStamped.pose.orientation.w = q.getW();
-        poseStamped.pose.orientation.x = q.getX();
-        poseStamped.pose.orientation.y = q.getY();
-        poseStamped.pose.orientation.z = q.getZ();
+          poseStamped.pose.position.x = x_mean;
+          poseStamped.pose.position.y = y_min + block.depth/2;
+          poseStamped.pose.position.z = z_mean;
 
-        block.pose = poseStamped;
+          double theta = 0.0;
+          tf::Quaternion q = tf::createQuaternionFromRPY(0, 0, theta);
+          poseStamped.pose.orientation.w = q.getW();
+          poseStamped.pose.orientation.x = q.getX();
+          poseStamped.pose.orientation.y = q.getY();
+          poseStamped.pose.orientation.z = q.getZ();
+
+          block.pose = poseStamped;
+
+        }
+        else {
+          //front and top plane available
+
+          // get statistic values
+          double x_min, x_max, x_mean;
+          double y_min, y_max, y_mean;
+          double z_min, z_max, z_mean;
+
+          cloud_statistics_size(cloud, &x_min, &x_max, &x_mean, &y_min, &y_max, &y_mean, &z_min, &z_max, &z_mean);
+
+          // extract size and check if plausible
+          block.width = x_max - x_min  -0.005;
+          block.depth = y_max - y_min  -0.005;
+          block.height = z_max - z_min -0.005;
+
+          block.type = get_block_type(block.width, block.height, block.depth);
+
+          if (block.type == BLOCK_TYPE_UNKNOWN)
+            continue;
+
+          // extract position and orientation
+          geometry_msgs::PoseStamped poseStamped;
+          poseStamped.header.frame_id = GLOBAL_FRAME_ID;
+          poseStamped.header.stamp = ros::Time::now();
+
+          poseStamped.pose.position.x = x_mean;
+          poseStamped.pose.position.y = y_mean;
+          poseStamped.pose.position.z = z_mean;
+
+          double theta = 0.0;
+          tf::Quaternion q = tf::createQuaternionFromRPY(0, 0, theta);
+          poseStamped.pose.orientation.w = q.getW();
+          poseStamped.pose.orientation.x = q.getX();
+          poseStamped.pose.orientation.y = q.getY();
+          poseStamped.pose.orientation.z = q.getZ();
+
+          block.pose = poseStamped;
+
+        }
 
         // extract color
+        double hue_min, hue_max, hue_mean;
+        cloud_statistics_color(cloud, &hue_min, &hue_max, &hue_mean);
         block.color = get_hue_color( hue_mean);
 
         ROS_INFO_STREAM( "block color " << hue_mean << " nr " << std::to_string(block.color) );
