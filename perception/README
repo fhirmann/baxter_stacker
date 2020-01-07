@@ -52,7 +52,7 @@ PCD Files saved in ASCII format loss the color information. All points are only 
 
 PCD Files always save the color in RGB Colorspace
 
-Rosbag: recording a rostopic message into a file works with rosbag record -l #numberOfMessages #topicName
+Rosbag: recording a rostopic message into a file works with rosbag record -l #numberOfMessages /camera/depth_registered/points
 
 Although we changed the perception node to a ros service it needs to subscribe to the camera topic the whole time because if the camera driver recognices that there is no subscriper it stops the stream and only starts it again when the service is waiting for a message. --> The first few images are bad because the automatic exposure and shutter make problems.
 

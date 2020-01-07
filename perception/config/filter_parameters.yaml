@@ -18,9 +18,9 @@ filter/hue_tol: 15
 filter/block_plane_dist_threshold: 0.0025
 filter/block_plane_max_iterations: 10
 filter/block_plane_min_points: 50
-filter/block_type_big_square: [0.04, 0.04, 0.08]
+filter/block_type_big_square: [0.04, 0.04, 0.082]
 filter/block_type_big_slim: [0.022, 0.04, 0.08]
 filter/block_type_cube: [0.04, 0.04, 0.04]
 filter/block_type_small_square: [0.025, 0.025, 0.05]
-filter/block_type_tol: 0.0125
+filter/block_type_tol: 0.012
 
