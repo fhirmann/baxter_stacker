@@ -457,11 +457,12 @@ class Filter
     {
 
       int seedColor = get_hue_color( seedPoint.h);
-      int canditateColor = get_hue_color( candidatePoint.h);
+      int candidateColor = get_hue_color( candidatePoint.h);
 
       // Do whatever you want here.
       //ROS_INFO_STREAM( "Seed h = " << seedPoint.h << " color " << seedColor << " candidate h = " << candidatePoint.h << " color " << canditateColor);
-      if ( seedColor == UNKNOWN_COLOR || seedColor != canditateColor)
+      if ( seedColor == UNKNOWN_COLOR || seedColor != candidateColor ||
+           candidatePoint.s < 0.3 || candidatePoint.v > 0.9 )
         return false;
 
       return true;
@@ -495,7 +496,7 @@ class Filter
 
       clustering_hsv.segment( clusters_hsv);
 
-      ROS_INFO_STREAM("color_seg - clustered");
+      //ROS_INFO_STREAM("color_seg - clustered");
 
       // For every cluster...
       int currentClusterNum = 1;
@@ -729,6 +730,7 @@ class Filter
 
         //ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
 
+
         /*plot_x_distribution( cloud);
         plot_y_distribution( cloud);
         plot_z_distribution( cloud);*/
@@ -773,8 +775,8 @@ class Filter
         // extract color
         block.color = get_hue_color( hue_mean);
 
-        //plot_color_distribution_hsv( cloud);
         ROS_INFO_STREAM( "block color " << hue_mean << " nr " << std::to_string(block.color) );
+        //plot_color_distribution_hsv( cloud);
 
         if(block.color == UNKNOWN_COLOR)
           continue;
