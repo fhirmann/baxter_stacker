@@ -115,8 +115,8 @@ class kmr19ArmCtrl:
       ocm.weight = 1
 
       #add constraint to planner
-      #constraints.orientation_constraints.append(ocm)
-      #group.set_path_constraints(constraints)
+      constraints.orientation_constraints.append(ocm)
+      group.set_path_constraints(constraints)
 
       group.set_start_state_to_current_state()
 
