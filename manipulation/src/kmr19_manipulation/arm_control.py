@@ -31,6 +31,7 @@ class kmr19ArmCtrl:
 
   def moveToInitPosition(self, arm='left'):
     if (arm == 'left'):
+      self.left_gripper.open()
       group = self.group_l
 
       joint_goal = group.get_current_joint_values()
@@ -47,6 +48,7 @@ class kmr19ArmCtrl:
 
       success = True
     elif (arm == 'right'):
+      self.right_gripper.open()
       group = self.group_r
 
       joint_goal = group.get_current_joint_values()
@@ -117,8 +119,6 @@ class kmr19ArmCtrl:
       #add constraint to planner
       constraints.orientation_constraints.append(ocm)
       group.set_path_constraints(constraints)
-
-      group.set_start_state_to_current_state()
 
     if use_cartesian:
       #cartesian path waypoints
@@ -199,10 +199,8 @@ class kmr19ArmCtrl:
       ocm.weight = 1
 
       #add constraint to planner
-      #constraints.orientation_constraints.append(ocm)
-      #group.set_path_constraints(constraints)
-
-      group.set_start_state_to_current_state()
+      constraints.orientation_constraints.append(ocm)
+      group.set_path_constraints(constraints)
 
     if use_cartesian:
       # cartesian path waypoints
