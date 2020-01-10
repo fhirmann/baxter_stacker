@@ -5,6 +5,11 @@ import rospy
 from perception.srv import GetScene, GetSceneResponse
 from perception.msg import Block
 
+import tf
+from math import pi
+
+from tf.transformations import *
+
 def get_defined_block1_from_test_scene():
     block = Block()
     block.id = 1
@@ -21,8 +26,12 @@ def get_defined_block1_from_test_scene():
     block.pose.pose.position.y = 0.50
     block.pose.pose.position.z = block.height/2.
 
-    # no orientation (=0)
+    q_rot = quaternion_from_euler(0, 0, 45./180.*pi)   
 
+    block.pose.pose.orientation.x = q_rot[0]
+    block.pose.pose.orientation.y = q_rot[1]
+    block.pose.pose.orientation.z = q_rot[2]
+    block.pose.pose.orientation.w = q_rot[3]
 
     return block
 
@@ -32,7 +41,7 @@ def get_defined_block2_from_test_scene():
     block.type = block.CUBOID
     block.color = block.RED
 
-    block.width = 20./1000.
+    block.width = 40./1000.
     block.depth = 40./1000.
     block.height = 80./1000.
 
@@ -42,8 +51,12 @@ def get_defined_block2_from_test_scene():
     block.pose.pose.position.y = 0.70
     block.pose.pose.position.z = block.height/2.
 
-    # no orientation (=0)
+    q_rot = quaternion_from_euler(0, 0, -45./180.*pi)   
 
+    block.pose.pose.orientation.x = q_rot[0]
+    block.pose.pose.orientation.y = q_rot[1]
+    block.pose.pose.orientation.z = q_rot[2]
+    block.pose.pose.orientation.w = q_rot[3]
 
     return block
 
@@ -127,7 +140,7 @@ def block_list_simple_scene():
 def block_list_stacked_scene2():
     # large yellow_block is on loc1, large blue block is stacked on large yellow block, small green block is again stacked on large blue block
     # red block is on loc2
-    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene(), get_block_stacked_on_block1_from_test_scene(), get_block_stacked_on_block3_from_test_scene()]
+    return [get_defined_block1_from_test_scene(), get_defined_block2_from_test_scene()]
 
 def block_list_stacked_scene():
     # large yellow_block is on loc1, large blue block is stacked on large yellow_block
@@ -140,7 +153,7 @@ def block_list_easy_collision_scene():
 def handle_get_scene(req):
     rospy.loginfo("Handling get_scene service...")
 
-    block_list = block_list_stacked_scene2()
+    block_list = block_list_simple_scene()
     success = True
 
 
