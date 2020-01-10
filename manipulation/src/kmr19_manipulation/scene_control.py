@@ -37,6 +37,17 @@ class kmr19SceneControl:
     # wait until scene is changed
     self.checkObject(3, "table", obj_is_attached=False, obj_is_known=True)
 
+    #add screen border
+    table_pose.header.frame_id = "world"
+    table_pose.pose.position.x = 0.485 + 0.3
+    table_pose.pose.position.y = -0.507 - 0.4
+    table_pose.pose.position.z = -0.21
+    table_size = (0.5, 0.5, 2)
+    # add to MoveIt scene
+    self.scene.add_box("screen_border", table_pose, table_size)
+    # wait until scene is changed
+    self.checkObject(3, "screen_border", obj_is_attached=False, obj_is_known=True)
+
     print("[kmr19SceneCtrl addFixedSceneObjects]: added fixed scene objects!")
 
   def isBlockInScene(self, id):

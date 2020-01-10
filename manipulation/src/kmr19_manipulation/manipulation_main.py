@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-#TODO: Path constraints
-#TODO: check table coordinate frame
+#TODO: Position constraint
 
 import sys
 import copy
