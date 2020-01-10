@@ -49,7 +49,7 @@ bool PutDownAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch
     end_position_msg.pose.position.x = location_pose.position.x;
     end_position_msg.pose.position.y = location_pose.position.y;
     end_position_msg.pose.position.z = block.height/2.;
-
+    end_position_msg.pose.orientation = block.pose.pose.orientation;
 
     srv.request.end_position = end_position_msg;
 
