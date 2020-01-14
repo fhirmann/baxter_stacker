@@ -738,19 +738,19 @@ class Filter
             case 1:
               if( top->points.size() < inlierInds->indices.size()) {
                 extract.filter(*top);
-                top_coefs = coefficients;
+                *top_coefs = *coefficients;
               }
               break;
             case 2:
               if( left->points.size() < inlierInds->indices.size()) {
                 extract.filter(*left);
-                left_coefs = coefficients;
+                *left_coefs = *coefficients;
               }
               break;
             case 3:
               if( right->points.size() < inlierInds->indices.size()){
                 extract.filter(*right);
-                right_coefs = coefficients;
+                *right_coefs = *coefficients;
               }
               break;
           }
@@ -797,12 +797,37 @@ class Filter
         }
 
         //ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
-
+        //ROS_INFO_STREAM( "FILTER: coeffs size top " << top_coeffs->values.size() << " left " << left_coeffs->values.size() << " right " << right_coeffs->values.size() );
         //plot_color_distribution_hsv(cloud);
         /*plot_x_distribution( cloud);
         plot_y_distribution( cloud);
         plot_z_distribution( cloud);*/
 
+        // extract orientation
+        double theta = 0.0;
+        double t = 0.0;
+
+        if( left->points.size() > right->points.size() && left_coeffs->values.size() > 0)
+        {
+          t = std::atan2( left_coeffs->values.at(1), left_coeffs->values.at(0));
+        }else if( right_coeffs->values.size() > 0)
+        {
+          t = std::atan2( right_coeffs->values.at(1), right_coeffs->values.at(0));
+        }
+
+        if( (t < M_PI/4 && t >= -M_PI/4) || (t > 3*M_PI/4 && t <= M_PI) || (t < -3*M_PI/4 && t >= -M_PI))
+          theta = 0.0;
+        else if( (t < 3*M_PI/4 && t >= M_PI/4) )
+          theta = M_PI/4;
+        else if( (t > -3*M_PI/4 && t <= -M_PI/4))
+          theta = -M_PI/4;
+
+        tf::Quaternion q = tf::createQuaternionFromRPY(0, 0, theta);
+
+        ROS_INFO_STREAM("OBJECT_EXTRACTION theta " << theta << " - " << t);
+
+
+        // extract position and size
         if( left->points.size() > 0 && top->points.size() == 0)
         {
           //only front plane available
@@ -833,8 +858,6 @@ class Filter
           poseStamped.pose.position.y = y_min + block.depth/2;
           poseStamped.pose.position.z = z_mean;
 
-          double theta = 0.0;
-          tf::Quaternion q = tf::createQuaternionFromRPY(0, 0, theta);
           poseStamped.pose.orientation.w = q.getW();
           poseStamped.pose.orientation.x = q.getX();
           poseStamped.pose.orientation.y = q.getY();
@@ -845,18 +868,6 @@ class Filter
         }
         else {
           //front and top plane available
-          double theta = 0.0;
-
-          if( left->points.size() > right->points.size() && left->points.size() > 0)
-          {
-            theta = atan2( left_coeffs(1), left_coeffs(2));
-            ROS_INFO_STREAM("OBJECT_EXTRACTION theta " << theta);
-
-            if( theta < M_PI/4 && theta >= -M_PI/4)
-              theta = 0.0;
-            else if( theta < 3*M_PI/4 && theta >= M_PI/4)
-              theta = M_PI/4;
-          }
 
           // get statistic values
           double x_min, x_max, x_mean;
@@ -884,14 +895,12 @@ class Filter
           poseStamped.pose.position.y = y_mean;
           poseStamped.pose.position.z = z_mean;
 
-          tf::Quaternion q = tf::createQuaternionFromRPY(0, 0, theta);
           poseStamped.pose.orientation.w = q.getW();
           poseStamped.pose.orientation.x = q.getX();
           poseStamped.pose.orientation.y = q.getY();
           poseStamped.pose.orientation.z = q.getZ();
 
           block.pose = poseStamped;
-
         }
 
         // extract color

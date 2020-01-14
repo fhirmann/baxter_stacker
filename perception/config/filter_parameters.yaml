@@ -16,7 +16,7 @@ filter/hue_red: 355
 filter/hue_blue: 220
 filter/hue_green: 85
 filter/hue_yellow: 35
-filter/hue_tol: 15
+filter/hue_tol: 13
 filter/block_plane_dist_threshold: 0.003
 filter/block_plane_max_iterations: 10
 filter/block_plane_min_points: 30
