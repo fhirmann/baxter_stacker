@@ -38,6 +38,8 @@ import tf
 from perception.srv import GetScene, GetSceneResponse
 from perception.msg import Block
 
+import random
+
 service_names = {'/get_scene', \
                     '/rosplan_knowledge_base/clear'}
 
@@ -51,6 +53,7 @@ def plan_printer(plan):
     print plan.data
 
 def add_location(name, x, y, yaw = 0):
+    rospy.loginfo("Add location {} in knowledge and scene db at x = {}, y = {}".format(name, x, y))
     if not add_instance("location", name):
         return -1
 
@@ -61,6 +64,7 @@ def add_location(name, x, y, yaw = 0):
     p = Pose(Point(x,y,0), Quaternion(*q))
 
     location_id = msg_store.insert_named(name, p)
+
 
     return location_id
 
@@ -249,9 +253,61 @@ def get_all_blocks_from_db():
     return blocks
         
 
+def find_free_location():
+    x_min = 0.14
+    x_max = 0.34
+
+    y_min = 0.40
+    y_max = 0.90
+
+    max_tries = 1000 # randomly try that times to find a location which is not occupied (should definitely find some position)
+
+    min_space_between_location_and_block_center = 2 * 0.04 + 2. / 100 # 2 times the biggest block width/height plus additional space 
+
+    existing_blocks = get_all_blocks_from_db()
+
+    rospy.loginfo("find_free_location")
+
+    for i in range(max_tries):
+        x_val = random.uniform(x_min, x_max)
+        y_val = random.uniform(y_min, y_max)
+
+        rospy.loginfo("try {}: x = {}, y = {}".format(i+1,x_val,y_val))
+
+
+
+        # test if there is a collision 
+        block_collision_found = False
+        for block in existing_blocks:
+            pos = block.pose.pose.position
+            rospy.loginfo("test against: \n{}".format(pos))
+            if (pos.x < (x_val + min_space_between_location_and_block_center) \
+                    and pos.x > (x_val - min_space_between_location_and_block_center)) \
+                and (pos.y < (y_val + min_space_between_location_and_block_center) \
+                    and pos.y > (y_val - min_space_between_location_and_block_center)):
+                block_collision_found = True
+                break
+        
+        if not block_collision_found:
+            rospy.loginfo("found free location after {} runs at x = {} and y = {}".format(i+1,x_val,y_val))
+            return (True, x_val, y_val)
+
+    
+    return (False, -1, -1)
+
+        
+
+
 def add_init_knowledge():
     update_fact_hand_empty(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE)
     # add one extra location for temporary moving to that position
-    add_location('loc_temp', 0.24, 0.85) # set some good position for this temporary location
-    update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'loc_temp')
+
+    (success, x_val, y_val) = find_free_location()
+
+
+    if success: # if no free position found, then just try without the temporary location which is needed for cornercases and hope for the best
+        add_location('loc_temp', x_val, y_val) 
+        update_fact_clear(KnowledgeUpdateServiceRequest.ADD_KNOWLEDGE, 'loc_temp')
+
+
 

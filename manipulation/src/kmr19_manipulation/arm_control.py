@@ -6,9 +6,11 @@ import baxter_interface
 from baxter_interface import CHECK_VERSION
 from perception.msg import Block
 import tf
+from tf.transformations import *
 from math import pi
 from moveit_msgs.msg import Constraints
 from moveit_msgs.msg import OrientationConstraint
+import numpy as np
 
 class kmr19ArmCtrl:
   def __init__(self):
@@ -31,6 +33,8 @@ class kmr19ArmCtrl:
 
   def moveToInitPosition(self, arm='left'):
     if (arm == 'left'):
+      self.left_gripper.open()
+      self.l_holds_block = False
       group = self.group_l
 
       joint_goal = group.get_current_joint_values()
@@ -47,6 +51,8 @@ class kmr19ArmCtrl:
 
       success = True
     elif (arm == 'right'):
+      self.right_gripper.open()
+      self.r_holds_block = False
       group = self.group_r
 
       joint_goal = group.get_current_joint_values()
@@ -92,14 +98,19 @@ class kmr19ArmCtrl:
     target_pose = group.get_current_pose(end_effector_link=link).pose
 
     #change orientation of target pose to bring gripper in right direction
-    target_pose.orientation.x = 0
-    target_pose.orientation.y = 1
-    target_pose.orientation.z = 0
-    target_pose.orientation.w = 0
+    q_orig = np.array([block_pose.pose.orientation.x, block_pose.pose.orientation.y, block_pose.pose.orientation.z, block_pose.pose.orientation.w])
+    q_rot = quaternion_from_euler(-pi, 0, -pi)   # x = 0, y = 1, z = w = 0
+    #apply rotation off gripper frame to block orientation
+    q_new = quaternion_multiply(q_rot, q_orig)
+
+    target_pose.orientation.x = q_new[0]
+    target_pose.orientation.y = q_new[1]
+    target_pose.orientation.z = q_new[2]
+    target_pose.orientation.w = q_new[3]
 
     if use_constraint:
-      group.set_max_velocity_scaling_factor(0.1)
-      group.set_max_acceleration_scaling_factor(0.1)
+      group.set_max_velocity_scaling_factor(0.2)
+      group.set_max_acceleration_scaling_factor(0.2)
 
       #generate constraints and orientation constraint object
       constraints = Constraints()
@@ -108,17 +119,15 @@ class kmr19ArmCtrl:
       #define orientation constraint
       ocm.header.frame_id = "/world"
       ocm.link_name = link
-      ocm.orientation.y = 1.0
+      ocm.orientation = target_pose.orientation
       ocm.absolute_x_axis_tolerance = 0.1
       ocm.absolute_y_axis_tolerance = 0.1
       ocm.absolute_z_axis_tolerance = 2*pi
       ocm.weight = 1
 
       #add constraint to planner
-      #constraints.orientation_constraints.append(ocm)
-      #group.set_path_constraints(constraints)
-
-      group.set_start_state_to_current_state()
+      constraints.orientation_constraints.append(ocm)
+      group.set_path_constraints(constraints)
 
     if use_cartesian:
       #cartesian path waypoints
@@ -175,15 +184,20 @@ class kmr19ArmCtrl:
     # init target pose
     target_pose = group.get_current_pose(end_effector_link=link).pose
 
-    # change orientation of target pose to bring gripper in right direction
-    target_pose.orientation.x = 0
-    target_pose.orientation.y = 1
-    target_pose.orientation.z = 0
-    target_pose.orientation.w = 0
+    #change orientation of target pose to bring gripper in right direction
+    q_orig = np.array([goal_pose.pose.orientation.x, goal_pose.pose.orientation.y, goal_pose.pose.orientation.z, goal_pose.pose.orientation.w])
+    q_rot = quaternion_from_euler(-pi, 0, -pi)   # x = 0, y = 1, z = w = 0
+    #apply rotation off gripper frame to block orientation
+    q_new = quaternion_multiply(q_rot, q_orig)
+
+    target_pose.orientation.x = q_new[0]
+    target_pose.orientation.y = q_new[1]
+    target_pose.orientation.z = q_new[2]
+    target_pose.orientation.w = q_new[3]
 
     if use_constraint:
-      group.set_max_velocity_scaling_factor(0.1)
-      group.set_max_acceleration_scaling_factor(0.1)
+      group.set_max_velocity_scaling_factor(0.2)
+      group.set_max_acceleration_scaling_factor(0.2)
 
       #generate constraints and orientation constraint object
       constraints = Constraints()
@@ -199,10 +213,8 @@ class kmr19ArmCtrl:
       ocm.weight = 1
 
       #add constraint to planner
-      #constraints.orientation_constraints.append(ocm)
-      #group.set_path_constraints(constraints)
-
-      group.set_start_state_to_current_state()
+      constraints.orientation_constraints.append(ocm)
+      group.set_path_constraints(constraints)
 
     if use_cartesian:
       # cartesian path waypoints
