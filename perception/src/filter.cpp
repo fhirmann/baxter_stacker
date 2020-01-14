@@ -653,7 +653,7 @@ class Filter
           height < (min_type.height + block_type_tol_) && height > (min_type.height - block_type_tol_))
         type_id = min_type.id;
 
-      ROS_INFO_STREAM( "FILTER: get block type  width " << width << " depth " << depth << " height " << height << " type " << type_id );
+      //ROS_INFO_STREAM( "FILTER: get block type  width " << width << " depth " << depth << " height " << height << " type " << type_id );
       return type_id;
     }
 
@@ -684,7 +684,7 @@ class Filter
         *depth = min_type.depth;
       }
 
-      ROS_INFO_STREAM( "FILTER: get block type from front  width " << width << " depth " << *depth << " height " << height << " type " << type_id );
+      //ROS_INFO_STREAM( "FILTER: get block type from front  width " << width << " depth " << *depth << " height " << height << " type " << type_id );
       return type_id;
     }
 
@@ -796,9 +796,7 @@ class Filter
           b1_right_->header = cloud->header;
         }
 
-        //TODO evaluate each side of the block
-
-        ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
+        //ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
 
         //plot_color_distribution_hsv(cloud);
         /*plot_x_distribution( cloud);
@@ -847,6 +845,18 @@ class Filter
         }
         else {
           //front and top plane available
+          double theta = 0.0;
+
+          if( left->points.size() > right->points.size() && left->points.size() > 0)
+          {
+            theta = atan2( left_coeffs(1), left_coeffs(2));
+            ROS_INFO_STREAM("OBJECT_EXTRACTION theta " << theta);
+
+            if( theta < M_PI/4 && theta >= -M_PI/4)
+              theta = 0.0;
+            else if( theta < 3*M_PI/4 && theta >= M_PI/4)
+              theta = M_PI/4;
+          }
 
           // get statistic values
           double x_min, x_max, x_mean;
@@ -874,7 +884,6 @@ class Filter
           poseStamped.pose.position.y = y_mean;
           poseStamped.pose.position.z = z_mean;
 
-          double theta = 0.0;
           tf::Quaternion q = tf::createQuaternionFromRPY(0, 0, theta);
           poseStamped.pose.orientation.w = q.getW();
           poseStamped.pose.orientation.x = q.getX();
@@ -890,7 +899,7 @@ class Filter
         cloud_statistics_color(cloud, &hue_min, &hue_max, &hue_mean);
         block.color = get_hue_color( hue_mean);
 
-        ROS_INFO_STREAM( "block color " << hue_mean << " nr " << std::to_string(block.color) );
+        //ROS_INFO_STREAM( "block color " << hue_mean << " nr " << std::to_string(block.color) );
         //plot_color_distribution_hsv( cloud);
 
         if(block.color == UNKNOWN_COLOR)
@@ -900,6 +909,34 @@ class Filter
 
         blocks->push_back(block);
         *success = true;
+
+        std::string col;
+        switch(block.color)
+        {
+          case 0: col = "red";
+            break;
+          case 1: col = "blue";
+            break;
+          case 2: col = "yellow";
+            break;
+          case 3: col = "green";
+            break;
+        }
+
+        std::string type_str;
+        switch(block.type)
+        {
+          case 1: type_str = "big_square";
+            break;
+          case 2: type_str = "big_slim";
+            break;
+          case 3: type_str = "cube";
+            break;
+          case 4: type_str = "small_square";
+            break;
+        }
+
+        ROS_INFO_STREAM( "OBJECT EXTRACTION: added block with id " << block.id << " type " << type_str << " color " << col << " position x " << block.pose.pose.position.x << " y " << block.pose.pose.position.y << " z " << block.pose.pose.position.z );
       }
     }
 
