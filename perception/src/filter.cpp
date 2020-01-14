@@ -59,6 +59,8 @@ double hue_green_;
 double hue_yellow_;
 double hue_tol_;
 
+double col_seg_min_saturation_;
+double col_seg_min_value_;
 
 /*============================================================================*/
 /*==== Transform point cloud to baxter base  =================================*/
@@ -84,6 +86,7 @@ class Filter
     ros::Publisher  block3_pc_pub_;
     ros::Publisher  block4_pc_pub_;
     ros::Publisher  block5_pc_pub_;
+    ros::Publisher  block6_pc_pub_;
 
     ros::Publisher  block1_top_pc_pub_;
     ros::Publisher  block1_left_pc_pub_;
@@ -113,6 +116,7 @@ class Filter
     int    col_seg_min_cluster_size_;
     int    col_seg_max_cluster_size_;
     double col_seg_dist_threshold_;
+
 
     double block_plane_dist_threshold_;
     int    block_plane_max_iterations_;
@@ -159,6 +163,8 @@ class Filter
       if(!nh_.getParam("/filter/col_seg_min_cluster_size",  col_seg_min_cluster_size_)) ok = false;
       if(!nh_.getParam("/filter/col_seg_max_cluster_size",  col_seg_max_cluster_size_)) ok = false;
       if(!nh_.getParam("/filter/col_seg_dist_threshold",    col_seg_dist_threshold_))   ok = false;
+      if(!nh_.getParam("/filter/col_seg_min_saturation",    col_seg_min_saturation_))   ok = false;
+      if(!nh_.getParam("/filter/col_seg_min_value",         col_seg_min_value_))        ok = false;
 
       //ROS_INFO_STREAM(" load_param: ok3 " << ok);
 
@@ -477,7 +483,7 @@ class Filter
       // Do whatever you want here.
       //ROS_INFO_STREAM( "Seed h = " << seedPoint.h << " color " << seedColor << " candidate h = " << candidatePoint.h << " color " << canditateColor);
       if ( seedColor == UNKNOWN_COLOR || seedColor != candidateColor ||
-           candidatePoint.s < 0.3 || candidatePoint.v > 0.9 )
+           candidatePoint.s < col_seg_min_saturation_ || candidatePoint.v < col_seg_min_value_ )
         return false;
 
       return true;
@@ -520,9 +526,10 @@ class Filter
         // ...add all its points to a new cloud...
         pcl::PointCloud<pcl::PointXYZHSV>::Ptr cluster( new pcl::PointCloud<pcl::PointXYZHSV>);
 
-        for (std::vector<int>::const_iterator point = i->indices.begin(); point != i->indices.end(); point++)
-          cluster->points.push_back( hsv_cloud_->points[*point]);
-
+        for (std::vector<int>::const_iterator point = i->indices.begin(); point != i->indices.end(); point++) {
+          if( hsv_cloud_->points[*point].s > col_seg_min_saturation_ && hsv_cloud_->points[*point].v > col_seg_min_value_) //removes withe and black points
+            cluster->points.push_back(hsv_cloud_->points[*point]);
+        }
         cluster->header   = hsv_cloud_->header;
         cluster->width    = cluster->points.size();
         cluster->height   = 1;
@@ -625,38 +632,59 @@ class Filter
     int get_block_type( double width, double height, double depth)
     {
       int type_id = BLOCK_TYPE_UNKNOWN;
+      double min_dist = 100;
+      BLOCK_TYPE min_type;
+      min_type.id = type_id;
 
+      // get closest type
       for (auto &block_type : block_types_) {
-        if (((width  < (block_type.width + block_type_tol_)  && width  > (block_type.width - block_type_tol_) &&
-              depth  < (block_type.depth + block_type_tol_)  && depth  > (block_type.depth - block_type_tol_)) ||
-             (depth  < (block_type.width + block_type_tol_)  && depth  > (block_type.width - block_type_tol_) &&
-              width  < (block_type.depth + block_type_tol_)  && width  > (block_type.depth - block_type_tol_)))&&
-            height < (block_type.height + block_type_tol_) && height > (block_type.height - block_type_tol_))
-          type_id = block_type.id;
+        double dist = std::sqrt( std::pow(width - block_type.width, 2) + std::pow(depth - block_type.depth, 2) + std::pow(height - block_type.height, 2));
+
+        if ( dist  < min_dist) {
+          min_dist = dist;
+          min_type = block_type;
+        }
       }
 
-      ROS_INFO_STREAM( "FILTER: get block type  width " << width << " depth " << depth << " height " << height << " type " << type_id );
+      //Check if type is plausible
+      if( min_type.id != BLOCK_TYPE_UNKNOWN &&
+          width < (min_type.width + block_type_tol_) && width > (min_type.width - block_type_tol_) &&
+          depth < (min_type.depth + block_type_tol_) && depth > (min_type.depth - block_type_tol_) &&
+          height < (min_type.height + block_type_tol_) && height > (min_type.height - block_type_tol_))
+        type_id = min_type.id;
+
+      //ROS_INFO_STREAM( "FILTER: get block type  width " << width << " depth " << depth << " height " << height << " type " << type_id );
       return type_id;
     }
 
     int get_block_type_from_front( double width, double height, double* depth)
     {
       int type_id = BLOCK_TYPE_UNKNOWN;
+      double min_dist = 100;
+      BLOCK_TYPE min_type;
+      min_type.id = type_id;
 
       for (auto &block_type : block_types_) {
 
-        //ROS_INFO_STREAM( "FILTER: get block type from front  width " << block_type.width << " - " << width << " depth " << block_type.depth << " - " << *depth << " height " << block_type.height << " - " << height );
+        double width_dif = std::min( width - block_type.width, width - block_type.depth);
+        double dist = std::sqrt( std::pow( width_dif, 2) + std::pow(height - block_type.height, 2));
 
-        if((width  < (block_type.width + block_type_tol_)  && width  > (block_type.width - block_type_tol_) ||
-            width  < (block_type.depth + block_type_tol_)  && width  > (block_type.depth - block_type_tol_))&&
-            height < (block_type.height + block_type_tol_) && height > (block_type.height - block_type_tol_) &&
-            type_id == BLOCK_TYPE_UNKNOWN) {
-          type_id = block_type.id;
-          *depth = block_type.depth;
+        if ( dist  < min_dist) {
+          min_dist = dist;
+          min_type = block_type;
         }
+        //ROS_INFO_STREAM( "FILTER: get block type from front  width " << block_type.width << " - " << width << " depth " << block_type.depth << " - " << *depth << " height " << block_type.height << " - " << height );
       }
 
-      ROS_INFO_STREAM( "FILTER: get block type from front  width " << width << " depth " << *depth << " height " << height << " type " << type_id );
+      if(min_type.id != BLOCK_TYPE_UNKNOWN &&
+         (width  < (min_type.width + block_type_tol_)  && width  > (min_type.width - block_type_tol_) ||
+          width  < (min_type.depth + block_type_tol_)  && width  > (min_type.depth - block_type_tol_))&&
+         height < (min_type.height + block_type_tol_) && height > (min_type.height - block_type_tol_)){
+        type_id = min_type.id;
+        *depth = min_type.depth;
+      }
+
+      //ROS_INFO_STREAM( "FILTER: get block type from front  width " << width << " depth " << *depth << " height " << height << " type " << type_id );
       return type_id;
     }
 
@@ -689,7 +717,7 @@ class Filter
         // get indices of points lying in the current plane with the coefficients
         seg.segment(*inlierInds, *coefficients);
 
-        if( coefficients->values.at(2) >= 0.9 )
+        if( coefficients->values.at(2) >= 0.85 )
           dir = 1; // top plane
         else if( coefficients->values.at(0) > coefficients->values.at(1))
           dir = 2;
@@ -710,19 +738,19 @@ class Filter
             case 1:
               if( top->points.size() < inlierInds->indices.size()) {
                 extract.filter(*top);
-                top_coefs = coefficients;
+                *top_coefs = *coefficients;
               }
               break;
             case 2:
               if( left->points.size() < inlierInds->indices.size()) {
                 extract.filter(*left);
-                left_coefs = coefficients;
+                *left_coefs = *coefficients;
               }
               break;
             case 3:
               if( right->points.size() < inlierInds->indices.size()){
                 extract.filter(*right);
-                right_coefs = coefficients;
+                *right_coefs = *coefficients;
               }
               break;
           }
@@ -768,15 +796,38 @@ class Filter
           b1_right_->header = cloud->header;
         }
 
-        //TODO evaluate each side of the block
-
-        ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
-
-
+        //ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
+        //ROS_INFO_STREAM( "FILTER: coeffs size top " << top_coeffs->values.size() << " left " << left_coeffs->values.size() << " right " << right_coeffs->values.size() );
+        //plot_color_distribution_hsv(cloud);
         /*plot_x_distribution( cloud);
         plot_y_distribution( cloud);
         plot_z_distribution( cloud);*/
 
+        // extract orientation
+        double theta = 0.0;
+        double t = 0.0;
+
+        if( left->points.size() > right->points.size() && left_coeffs->values.size() > 0)
+        {
+          t = std::atan2( left_coeffs->values.at(1), left_coeffs->values.at(0));
+        }else if( right_coeffs->values.size() > 0)
+        {
+          t = std::atan2( right_coeffs->values.at(1), right_coeffs->values.at(0));
+        }
+
+        if( (t < M_PI/4 && t >= -M_PI/4) || (t > 3*M_PI/4 && t <= M_PI) || (t < -3*M_PI/4 && t >= -M_PI))
+          theta = 0.0;
+        else if( (t < 3*M_PI/4 && t >= M_PI/4) )
+          theta = M_PI/4;
+        else if( (t > -3*M_PI/4 && t <= -M_PI/4))
+          theta = -M_PI/4;
+
+        tf::Quaternion q = tf::createQuaternionFromRPY(0, 0, theta);
+
+        ROS_INFO_STREAM("OBJECT_EXTRACTION theta " << theta << " - " << t);
+
+
+        // extract position and size
         if( left->points.size() > 0 && top->points.size() == 0)
         {
           //only front plane available
@@ -807,8 +858,6 @@ class Filter
           poseStamped.pose.position.y = y_min + block.depth/2;
           poseStamped.pose.position.z = z_mean;
 
-          double theta = 0.0;
-          tf::Quaternion q = tf::createQuaternionFromRPY(0, 0, theta);
           poseStamped.pose.orientation.w = q.getW();
           poseStamped.pose.orientation.x = q.getX();
           poseStamped.pose.orientation.y = q.getY();
@@ -828,9 +877,9 @@ class Filter
           cloud_statistics_size(cloud, &x_min, &x_max, &x_mean, &y_min, &y_max, &y_mean, &z_min, &z_max, &z_mean);
 
           // extract size and check if plausible
-          block.width = x_max - x_min  -0.005;
-          block.depth = y_max - y_min  -0.005;
-          block.height = z_max - z_min -0.005;
+          block.width = std::min( (x_max - x_min), (y_max - y_min));
+          block.depth = std::max( (x_max - x_min), (y_max - y_min));
+          block.height = z_max - z_min;
 
           block.type = get_block_type(block.width, block.height, block.depth);
 
@@ -846,15 +895,12 @@ class Filter
           poseStamped.pose.position.y = y_mean;
           poseStamped.pose.position.z = z_mean;
 
-          double theta = 0.0;
-          tf::Quaternion q = tf::createQuaternionFromRPY(0, 0, theta);
           poseStamped.pose.orientation.w = q.getW();
           poseStamped.pose.orientation.x = q.getX();
           poseStamped.pose.orientation.y = q.getY();
           poseStamped.pose.orientation.z = q.getZ();
 
           block.pose = poseStamped;
-
         }
 
         // extract color
@@ -862,7 +908,7 @@ class Filter
         cloud_statistics_color(cloud, &hue_min, &hue_max, &hue_mean);
         block.color = get_hue_color( hue_mean);
 
-        ROS_INFO_STREAM( "block color " << hue_mean << " nr " << std::to_string(block.color) );
+        //ROS_INFO_STREAM( "block color " << hue_mean << " nr " << std::to_string(block.color) );
         //plot_color_distribution_hsv( cloud);
 
         if(block.color == UNKNOWN_COLOR)
@@ -872,6 +918,34 @@ class Filter
 
         blocks->push_back(block);
         *success = true;
+
+        std::string col;
+        switch(block.color)
+        {
+          case 0: col = "red";
+            break;
+          case 1: col = "blue";
+            break;
+          case 2: col = "yellow";
+            break;
+          case 3: col = "green";
+            break;
+        }
+
+        std::string type_str;
+        switch(block.type)
+        {
+          case 1: type_str = "big_square";
+            break;
+          case 2: type_str = "big_slim";
+            break;
+          case 3: type_str = "cube";
+            break;
+          case 4: type_str = "small_square";
+            break;
+        }
+
+        ROS_INFO_STREAM( "OBJECT EXTRACTION: added block with id " << block.id << " type " << type_str << " color " << col << " position x " << block.pose.pose.position.x << " y " << block.pose.pose.position.y << " z " << block.pose.pose.position.z );
       }
     }
 
@@ -987,7 +1061,7 @@ class Filter
 
       //TODO check if data is not outdated (blocks timestamp)
 
-      ROS_INFO_STREAM( "FILTER: sending back response \n");// << res.blocks);
+      ROS_INFO_STREAM( "FILTER: sending back response with success =  " << success_ << " and # of blocks found = " << blocks_->size());// << res.blocks);
       return true;
     }
 
@@ -1042,6 +1116,10 @@ class Filter
         if (color_clusters_->size() >= 5) {
           rgb_cloud = hsv_to_rgb(color_clusters_->at(4));
           block5_pc_pub_.publish(rgb_cloud);
+        }
+        if (color_clusters_->size() >= 6) {
+          rgb_cloud = hsv_to_rgb(color_clusters_->at(5));
+          block6_pc_pub_.publish(rgb_cloud);
         }
       }
 
@@ -1198,6 +1276,9 @@ class Filter
       color_clusters_ = nullptr;
 
       //ROS_INFO_STREAM( "FILTER: start constructor" );
+      col_seg_min_saturation_ = 0.4;
+      col_seg_min_value_ = 0.2;
+
       hue_red_   = 355;
       hue_blue_  = 220;
       hue_green_ = 85;
@@ -1237,6 +1318,7 @@ class Filter
       block3_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block3", 1);
       block4_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block4", 1);
       block5_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block5", 1);
+      block6_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_block6", 1);
       block1_top_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_b1_top", 1);
       block1_left_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_b1_left", 1);
       block1_right_pc_pub_ = nh_.advertise< pcl::PointCloud<pcl::PointXYZRGB>>("/filter_b1_right", 1);
