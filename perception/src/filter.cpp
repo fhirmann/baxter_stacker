@@ -116,6 +116,7 @@ class Filter
     int    col_seg_min_cluster_size_;
     int    col_seg_max_cluster_size_;
     double col_seg_dist_threshold_;
+    double col_seg_scale_z_;
 
 
     double block_plane_dist_threshold_;
@@ -165,6 +166,7 @@ class Filter
       if(!nh_.getParam("/filter/col_seg_dist_threshold",    col_seg_dist_threshold_))   ok = false;
       if(!nh_.getParam("/filter/col_seg_min_saturation",    col_seg_min_saturation_))   ok = false;
       if(!nh_.getParam("/filter/col_seg_min_value",         col_seg_min_value_))        ok = false;
+      if(!nh_.getParam("/filter/col_seg_scale_z",           col_seg_scale_z_))          ok = false;
 
       //ROS_INFO_STREAM(" load_param: ok3 " << ok);
 
@@ -314,21 +316,27 @@ class Filter
     /*============================================================================*/
     /*===== smooth the surfaces ==================================================*/
     /*============================================================================*/
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr smooth_surfaces(pcl::PointCloud<pcl::PointXYZRGB>::Ptr input_cloud)
+    pcl::PointCloud<pcl::PointXYZHSV>::Ptr smooth_surfaces(pcl::PointCloud<pcl::PointXYZHSV>::Ptr input_cloud)
     {
       // Object for storing the point cloud.
+      pcl::PointCloud<pcl::PointXYZRGB>::Ptr in_cloud(new pcl::PointCloud <pcl::PointXYZRGB>);
       pcl::PointCloud<pcl::PointXYZRGB>::Ptr output_cloud(new pcl::PointCloud <pcl::PointXYZRGB>);
+      pcl::PointCloud<pcl::PointXYZHSV>::Ptr return_cloud(new pcl::PointCloud <pcl::PointXYZHSV>);
+
+      in_cloud = hsv_to_rgb(input_cloud);
 
       // Smoothing object (we choose what point types we want as input and output).
       pcl::MovingLeastSquares <pcl::PointXYZRGB, pcl::PointXYZRGB> filter;
       pcl::search::KdTree<pcl::PointXYZRGB>::Ptr kdtree;
 
-      filter.setInputCloud(input_cloud);
+      filter.setInputCloud(in_cloud);
       filter.setSearchRadius(smoothing_radius_);
       filter.setPolynomialFit(true);
       filter.setSearchMethod(kdtree);
 
       filter.process(*output_cloud);
+
+      return_cloud = rgb_to_hsv( output_cloud);
 
       // remove nan values
      /* pcl::PointCloud<pcl::PointXYZRGB>::Ptr removed_nan_cloud(new pcl::PointCloud <pcl::PointXYZRGB>);
@@ -343,7 +351,7 @@ class Filter
 
       //ROS_INFO_STREAM( input_cloud->width << " - " << output_cloud->width << " | " << input_cloud->height << " - " << output_cloud->height);
 
-      return output_cloud;
+      return return_cloud;
     }
 
     /*============================================================================*/
@@ -369,6 +377,8 @@ class Filter
 
       // get indices of points lying in the plane of the table with the coefficients
       seg.segment(*inlierInds, *coefficients);
+
+      //ROS_INFO_STREAM( "FILTER: REMOVE_TABLE plane coeffs: " << coefficients->values.at(0) << " - " << coefficients->values.at(1) << " - " << coefficients->values.at(2) << " - " << coefficients->values.at(3) );
 
       if (inlierInds->indices.size() == 0){
         ROS_INFO_STREAM( "FILTER: Could not find a plane in the scene." );
@@ -528,12 +538,18 @@ class Filter
 
         for (std::vector<int>::const_iterator point = i->indices.begin(); point != i->indices.end(); point++) {
           if( hsv_cloud_->points[*point].s > col_seg_min_saturation_ && hsv_cloud_->points[*point].v > col_seg_min_value_) //removes withe and black points
+          {
+            // camera delivers spread out points -> at least counter the distribution in the z-axis with scaling it
+            hsv_cloud_->points[*point].z *= col_seg_scale_z_;
             cluster->points.push_back(hsv_cloud_->points[*point]);
+          }
         }
         cluster->header   = hsv_cloud_->header;
         cluster->width    = cluster->points.size();
         cluster->height   = 1;
         cluster->is_dense = true;
+
+        cluster = smooth_surfaces( cluster);
 
         // ...and add it to the return vector
         cloud_clusters_hsv->push_back( cluster);
@@ -592,9 +608,8 @@ class Filter
       ROS_INFO_STREAM( "FILTER:  y min: " << *y_min << " mean: " << *y_mean <<
                                           " max: " << *y_max );
       ROS_INFO_STREAM( "FILTER:  z min: " << *z_min << " mean: " << *z_mean <<
-                                          " max: " << *z_max );
-      ROS_INFO_STREAM( "FILTER:  hue min: " << *hue_min << " mean: " << *hue_mean <<
-                                          " max: " << *hue_max );*/
+                                          " max: " << *z_max );*/
+
     }
 
     void cloud_statistics_color( pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud,
@@ -653,7 +668,7 @@ class Filter
           height < (min_type.height + block_type_tol_) && height > (min_type.height - block_type_tol_))
         type_id = min_type.id;
 
-      //ROS_INFO_STREAM( "FILTER: get block type  width " << width << " depth " << depth << " height " << height << " type " << type_id );
+      ROS_INFO_STREAM( "FILTER: get block type  width " << width << " depth " << depth << " height " << height << " type " << type_id );
       return type_id;
     }
 
@@ -684,7 +699,7 @@ class Filter
         *depth = min_type.depth;
       }
 
-      //ROS_INFO_STREAM( "FILTER: get block type from front  width " << width << " depth " << *depth << " height " << height << " type " << type_id );
+      ROS_INFO_STREAM( "FILTER: get block type from front  width " << width << " depth " << *depth << " height " << height << " type " << type_id );
       return type_id;
     }
 
@@ -775,6 +790,7 @@ class Filter
       for(int i = 0; i < color_clusters->size(); i++)
       {
         pcl::PointCloud<pcl::PointXYZHSV>::Ptr cloud = color_clusters->at(i);
+        pcl::PointCloud<pcl::PointXYZHSV>::Ptr smoothed_cloud( new pcl::PointCloud<pcl::PointXYZHSV>());
         pcl::PointCloud<pcl::PointXYZHSV>::Ptr top( new pcl::PointCloud<pcl::PointXYZHSV>());
         pcl::PointCloud<pcl::PointXYZHSV>::Ptr left( new pcl::PointCloud<pcl::PointXYZHSV>());
         pcl::PointCloud<pcl::PointXYZHSV>::Ptr right( new pcl::PointCloud<pcl::PointXYZHSV>());
@@ -785,7 +801,7 @@ class Filter
 
         split_block_into_planes( cloud, top, left, right, top_coeffs, left_coeffs, right_coeffs);
 
-        if(i == 0)
+        if(i == 2)
         {
           b1_top_   = top;
           b1_left_  = left;
@@ -796,7 +812,7 @@ class Filter
           b1_right_->header = cloud->header;
         }
 
-        //ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
+        ROS_INFO_STREAM( "FILTER: cloud size " << cloud->points.size() << " top " << top->points.size() << " left " << left->points.size() << " right " << right->points.size() );
         //ROS_INFO_STREAM( "FILTER: coeffs size top " << top_coeffs->values.size() << " left " << left_coeffs->values.size() << " right " << right_coeffs->values.size() );
         //plot_color_distribution_hsv(cloud);
         /*plot_x_distribution( cloud);
@@ -810,17 +826,17 @@ class Filter
         if( left->points.size() > right->points.size() && left_coeffs->values.size() > 0)
         {
           t = std::atan2( left_coeffs->values.at(1), left_coeffs->values.at(0));
+          //ROS_INFO_STREAM("OBJECT_EXTRACTION coeffs left " << left_coeffs->values.at(0) << " - " << left_coeffs->values.at(1));
         }else if( right_coeffs->values.size() > 0)
         {
           t = std::atan2( right_coeffs->values.at(1), right_coeffs->values.at(0));
+          //ROS_INFO_STREAM("OBJECT_EXTRACTION coeffs right " << right_coeffs->values.at(0) << " - " << right_coeffs->values.at(1));
         }
 
-        if( (t < M_PI/4 && t >= -M_PI/4) || (t > 3*M_PI/4 && t <= M_PI) || (t < -3*M_PI/4 && t >= -M_PI))
-          theta = 0.0;
-        else if( (t < 3*M_PI/4 && t >= M_PI/4) )
-          theta = M_PI/4;
-        else if( (t > -3*M_PI/4 && t <= -M_PI/4))
+        if( (t < 3*M_PI/8 && t >= M_PI/8) || (t < -5*M_PI/8 && t >= -7*M_PI/8))
           theta = -M_PI/4;
+        else if( (t > -3*M_PI/8 && t <= -M_PI/8) || (t < 7*M_PI/8 && t >= 5*M_PI/8))
+          theta = M_PI/4;
 
         tf::Quaternion q = tf::createQuaternionFromRPY(0, 0, theta);
 
@@ -840,7 +856,10 @@ class Filter
           cloud_statistics_size(left, &x_min, &x_max, &x_mean, &y_min, &y_max, &y_mean, &z_min, &z_max, &z_mean);
 
           // extract size and check if plausible
-          block.width = std::max( (x_max - x_min), (y_max - y_min));
+          if( theta < -M_PI/8 || theta > M_PI/8 )
+            block.width = std::sqrt( std::pow( (x_max - x_min), 2) + std::pow( (y_max - y_min),2));
+          else
+            block.width = std::max( (x_max - x_min), (y_max - y_min));
           //block.depth = y_max - y_min;
           block.height = z_max - z_min;
 
@@ -854,9 +873,19 @@ class Filter
           poseStamped.header.frame_id = GLOBAL_FRAME_ID;
           poseStamped.header.stamp = ros::Time::now();
 
-          poseStamped.pose.position.x = x_mean;
-          poseStamped.pose.position.y = y_min + block.depth/2;
-          poseStamped.pose.position.z = z_mean;
+          if( theta < -M_PI/8 ){
+            poseStamped.pose.position.x = x_max;
+            poseStamped.pose.position.y = y_max;
+          }
+          else if( theta > M_PI/8){
+            poseStamped.pose.position.x = x_max;
+            poseStamped.pose.position.y = y_min;
+          }
+          else {
+            poseStamped.pose.position.x = (x_max - x_min) / 2 + x_min;
+            poseStamped.pose.position.y = block.depth / 2 + y_min;
+          }
+          poseStamped.pose.position.z = (z_max - z_min)/2 + z_min;
 
           poseStamped.pose.orientation.w = q.getW();
           poseStamped.pose.orientation.x = q.getX();
@@ -877,8 +906,15 @@ class Filter
           cloud_statistics_size(cloud, &x_min, &x_max, &x_mean, &y_min, &y_max, &y_mean, &z_min, &z_max, &z_mean);
 
           // extract size and check if plausible
-          block.width = std::min( (x_max - x_min), (y_max - y_min));
-          block.depth = std::max( (x_max - x_min), (y_max - y_min));
+          if (theta < -M_PI / 8 || theta > M_PI / 8) {
+            // only valid for squares
+            block.width = std::sqrt( std::pow( (x_max - x_min)/2, 2) + std::pow( (y_max - y_min)/2,2));
+            block.depth = block.width;
+          } else
+          {
+            block.width = std::min((x_max - x_min), (y_max - y_min));
+            block.depth = std::max((x_max - x_min), (y_max - y_min));
+          }
           block.height = z_max - z_min;
 
           block.type = get_block_type(block.width, block.height, block.depth);
@@ -891,9 +927,9 @@ class Filter
           poseStamped.header.frame_id = GLOBAL_FRAME_ID;
           poseStamped.header.stamp = ros::Time::now();
 
-          poseStamped.pose.position.x = x_mean;
-          poseStamped.pose.position.y = y_mean;
-          poseStamped.pose.position.z = z_mean;
+          poseStamped.pose.position.x = (x_max - x_min)/2 + x_min;
+          poseStamped.pose.position.y = (y_max - y_min)/2 + y_min;
+          poseStamped.pose.position.z = (z_max - z_min)/2 + z_min;
 
           poseStamped.pose.orientation.w = q.getW();
           poseStamped.pose.orientation.x = q.getX();
@@ -1268,6 +1304,7 @@ class Filter
       col_seg_min_cluster_size_(100),
       col_seg_max_cluster_size_(2000),
       col_seg_dist_threshold_(0.015),
+      col_seg_scale_z_(0.87),
       block_plane_dist_threshold_(0.003),
       block_plane_max_iterations_(10),
       block_plane_min_points_(30),

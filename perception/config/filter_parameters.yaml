@@ -2,7 +2,7 @@ filter/table_x_low :  0.0
 filter/table_x_high:  0.8
 filter/table_y_low :  0.0
 filter/table_y_high:  1.0
-filter/table_z_low : -0.06
+filter/table_z_low : -0.02
 filter/table_z_high:  0.3
 filter/smoothing_radius: 0.02
 filter/plane_seg_threshold: 0.012
@@ -10,14 +10,15 @@ filter/plane_seg_max_iterations: 10
 filter/col_seg_min_cluster_size: 100
 filter/col_seg_max_cluster_size: 2000
 filter/col_seg_dist_threshold: 0.015
-filter/col_seg_min_saturation: 0.5
+filter/col_seg_min_saturation: 0.35
 filter/col_seg_min_value: 0.3
+filter/col_seg_scale_z: 0.87
 filter/hue_red: 355
 filter/hue_blue: 220
 filter/hue_green: 85
 filter/hue_yellow: 35
 filter/hue_tol: 13
-filter/block_plane_dist_threshold: 0.003
+filter/block_plane_dist_threshold: 0.0022
 filter/block_plane_max_iterations: 10
 filter/block_plane_min_points: 30
 filter/block_type_big_square: [0.04, 0.04, 0.08]

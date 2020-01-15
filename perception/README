@@ -58,6 +58,13 @@ Although we changed the perception node to a ros service it needs to subscribe t
 
 https://github.com/AlexReimann/depth_calibration
 
+rosrun rqt_reconfigure rqt_reconfigure
+
+https://wiki.ros.org/openni_launch/Tutorials/ExtrinsicCalibrationExternal
+
+https://github.com/kuka-isir/depth_cam_extrinsics_calib
+
+
 
 
 
