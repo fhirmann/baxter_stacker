@@ -92,10 +92,13 @@ class kmr19ArmCtrl:
       link = 'right_gripper'
       frame = "right_gripper"
 
-    group.set_planning_time(15.0)
+    group.set_planning_time(30.0)
+
+    listener = tf.TransformListener()
+    listener.waitForTransform(link, "world", rospy.Time(), rospy.Duration(10.0))
 
     #init target pose
-    target_pose = group.get_current_pose(end_effector_link=link).pose
+    target_pose = group.get_current_pose(end_effector_link=link)
 
     #change orientation of target pose to bring gripper in right direction
     q_orig = np.array([block_pose.pose.orientation.x, block_pose.pose.orientation.y, block_pose.pose.orientation.z, block_pose.pose.orientation.w])
@@ -103,14 +106,19 @@ class kmr19ArmCtrl:
     #apply rotation off gripper frame to block orientation
     q_new = quaternion_multiply(q_rot, q_orig)
 
-    target_pose.orientation.x = q_new[0]
-    target_pose.orientation.y = q_new[1]
-    target_pose.orientation.z = q_new[2]
-    target_pose.orientation.w = q_new[3]
+    target_pose.pose.orientation.x = q_new[0]
+    target_pose.pose.orientation.y = q_new[1]
+    target_pose.pose.orientation.z = q_new[2]
+    target_pose.pose.orientation.w = q_new[3]
+
+    target_pose.header.stamp = rospy.Time(0)
 
     if use_constraint:
       group.set_max_velocity_scaling_factor(0.2)
       group.set_max_acceleration_scaling_factor(0.2)
+
+      #get orientation for constraint in end effector frame
+      tmp_pose = listener.transformPose(link, target_pose)
 
       #generate constraints and orientation constraint object
       constraints = Constraints()
@@ -119,10 +127,10 @@ class kmr19ArmCtrl:
       #define orientation constraint
       ocm.header.frame_id = "/world"
       ocm.link_name = link
-      ocm.orientation = target_pose.orientation
-      ocm.absolute_x_axis_tolerance = 0.1
-      ocm.absolute_y_axis_tolerance = 0.1
-      ocm.absolute_z_axis_tolerance = 2*pi
+      ocm.orientation = tmp_pose.pose.orientation
+      ocm.absolute_x_axis_tolerance = pi/4
+      ocm.absolute_y_axis_tolerance = pi/4
+      ocm.absolute_z_axis_tolerance = pi/4
       ocm.weight = 1
 
       #add constraint to planner
@@ -148,12 +156,12 @@ class kmr19ArmCtrl:
                                                       0.001,       # eef_step
                                                       0.0)        # jump_threshold
     else:
-      target_pose.position.x = block_pose.pose.position.x
-      target_pose.position.y = block_pose.pose.position.y
-      target_pose.position.z = block_pose.pose.position.z + height_dif
+      target_pose.pose.position.x = block_pose.pose.position.x
+      target_pose.pose.position.y = block_pose.pose.position.y
+      target_pose.pose.position.z = block_pose.pose.position.z + height_dif
 
       #set target pose in MoveIt Commander
-      group.set_pose_target(target_pose, link)
+      group.set_pose_target(target_pose.pose, link)
 
       plan = group.plan()
 
@@ -179,10 +187,13 @@ class kmr19ArmCtrl:
       group = self.group_r
       link = 'right_gripper'
 
-    group.set_planning_time(15.0)
+    group.set_planning_time(30.0)
 
-    # init target pose
-    target_pose = group.get_current_pose(end_effector_link=link).pose
+    listener = tf.TransformListener()
+    listener.waitForTransform(link, "world", rospy.Time(), rospy.Duration(10.0))
+
+    #init target pose
+    target_pose = group.get_current_pose(end_effector_link=link)
 
     #change orientation of target pose to bring gripper in right direction
     q_orig = np.array([goal_pose.pose.orientation.x, goal_pose.pose.orientation.y, goal_pose.pose.orientation.z, goal_pose.pose.orientation.w])
@@ -190,14 +201,19 @@ class kmr19ArmCtrl:
     #apply rotation off gripper frame to block orientation
     q_new = quaternion_multiply(q_rot, q_orig)
 
-    target_pose.orientation.x = q_new[0]
-    target_pose.orientation.y = q_new[1]
-    target_pose.orientation.z = q_new[2]
-    target_pose.orientation.w = q_new[3]
+    target_pose.pose.orientation.x = q_new[0]
+    target_pose.pose.orientation.y = q_new[1]
+    target_pose.pose.orientation.z = q_new[2]
+    target_pose.pose.orientation.w = q_new[3]
+
+    target_pose.header.stamp = rospy.Time(0)
 
     if use_constraint:
       group.set_max_velocity_scaling_factor(0.2)
       group.set_max_acceleration_scaling_factor(0.2)
+
+      #get orientation for constraint in end effector frame
+      tmp_pose = listener.transformPose(link, target_pose)
 
       #generate constraints and orientation constraint object
       constraints = Constraints()
@@ -206,10 +222,10 @@ class kmr19ArmCtrl:
       #define orientation constraint
       ocm.header.frame_id = "/world"
       ocm.link_name = link
-      ocm.orientation.y = 1.0
-      ocm.absolute_x_axis_tolerance = 0.1
-      ocm.absolute_y_axis_tolerance = 0.1
-      ocm.absolute_z_axis_tolerance = 2*pi
+      ocm.orientation = tmp_pose.pose.orientation
+      ocm.absolute_x_axis_tolerance = pi/2
+      ocm.absolute_y_axis_tolerance = pi/2
+      ocm.absolute_z_axis_tolerance = pi/2
       ocm.weight = 1
 
       #add constraint to planner
@@ -234,12 +250,12 @@ class kmr19ArmCtrl:
                                                       0.001,  # eef_step
                                                       0.0)  # jump_threshold
     else:
-      target_pose.position.x = tmp_pose.pose.position.x
-      target_pose.position.y = tmp_pose.pose.position.y
-      target_pose.position.z = tmp_pose.pose.position.z + height_dif
+      target_pose.pose.position.x = tmp_pose.pose.position.x
+      target_pose.pose.position.y = tmp_pose.pose.position.y
+      target_pose.pose.position.z = tmp_pose.pose.position.z + height_dif
 
       # set target pose in MoveIt Commander
-      group.set_pose_target(target_pose, link)
+      group.set_pose_target(target_pose.pose, link)
 
       plan = group.plan()
 

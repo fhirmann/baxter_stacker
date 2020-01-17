@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 #TODO: Position constraint
+#TODO: Detach block if moveto init
 
 import sys
 import copy
