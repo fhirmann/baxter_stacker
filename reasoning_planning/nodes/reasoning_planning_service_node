@@ -23,6 +23,76 @@ from perception.msg import Block
 
 from rospy.service import ServiceException
 
+
+import threading
+
+
+from reasoning_planning.msg import DispatchPlanFeedback
+  
+
+dispatch_lock = threading.Lock()
+
+dispatch_plan_feedback_pub = rospy.Publisher('dispatch_plan_feedback', DispatchPlanFeedback, queue_size=10)
+
+dispatch_plan_async_thread = None
+
+
+last_action_feedback_lock = threading.Lock()
+last_action_feedback_msg = None
+last_action_feedback_msg_time = rospy.Time(0)
+
+def action_feedback_callback(data):
+    last_action_feedback_lock.acquire()
+
+    last_action_feedback_msg = data
+    last_action_feedback_msg_time = rospy.Time.now()
+
+    last_action_feedback_lock.release()
+
+
+def dispatch_plan_async():
+    dispatch_lock.acquire()
+
+    feedback = DispatchPlanFeedback()
+
+    try:
+        goal_reached = dispatch_plan()
+        print goal_reached
+        feedback.success = goal_reached
+        if not goal_reached:
+            rospy.loginfo('Goal was not reached. Try to get further information from topic \'action_feedback\' and provide meaningful error code')
+            last_action_feedback_lock.acquire()
+
+            action_feedback_msg = None
+
+            # there is no last message or it is old
+            if last_action_feedback_msg is None \ 
+                or last_action_feedback_msg_time < (rospy.Duration(5) - rospy.Time.now()):
+
+                try:
+                    action_feedback_msg = rospy.wait_for_message('action_feedback',DispatchPlanFeedback, timeout=5)
+                except rospy.ROSException as e:
+                    feedback.error = DispatchPlanFeedback.OTHER_ERROR
+            else:
+                action_feedback_msg = last_action_feedback_msg
+
+            last_action_feedback_lock.release()
+            
+            if action_feedback_msg is not None:
+                feedback.error = action_feedback_msg.error
+                
+            
+
+    except Exception as e:
+        feedback.success = False
+        feedback.error = DispatchPlanFeedback.OTHER_ERROR
+
+    dispatch_plan_feedback_pub.publish(feedback)
+
+
+    dispatch_lock.release()
+
+
 def filter_color(blocks, color):
 
     filtered_blocks = list(filter(lambda block: block.color == color, blocks))
@@ -194,9 +264,13 @@ def achieve_goal(response):
         return response
 
     try:
-        goal_reached = dispatch_plan()
-        print goal_reached
-        response.success = goal_reached
+
+        
+        dispatch_plan_async_thread = threading.Thread(target=dispatch_plan_async, args=(), kwargs={})
+
+        dispatch_plan_async_thread.start() 
+
+        response.success = True
     except Exception as e:
         response.success = False
         response.general_error = StackGoalServiceResponse.OTHER_ERROR
@@ -209,6 +283,18 @@ def handle_stack_goal_service(req):
 
     rospy.loginfo("handle_stack_goal_service: got request:")
     print req
+
+    if dispatch_lock.locked():
+        response = StackGoalServiceResponse()
+
+        response.success = False
+        response.top_block_error = StackGoalServiceResponse.NO_ERROR
+        response.below_block_error = StackGoalServiceResponse.NO_ERROR
+        response.general_error = StackGoalServiceResponse.CURRENTLY_EXECUTING_PLAN
+        
+        rospy.loginfo("handle_stack_goal_service: response: \n{}".format(response))
+
+        return response
 
 
     # handle request
@@ -307,9 +393,23 @@ def handle_stack_goal_service(req):
 def start_stack_goal_server():
     rospy.init_node('reasoning_planning_service_node')
     s = rospy.Service('stack_goal_service', StackGoalService, handle_stack_goal_service)
+
+    rospy.Subscriber('action_feedback', DispatchPlanFeedback, action_feedback_callback)
+
     rospy.loginfo("Ready to provide service StackGoalService on {}!".format(s.resolved_name))
+
+def shutdown_callback():
+    rospy.loginfo("shutdown time! Waiting for the dispatch thread to finish!")
+
+
+    if dispatch_plan_async_thread is not None:
+        dispatch_plan_async_thread.join()
+
 
 if __name__ == "__main__":
     start_stack_goal_server()
+
+
+    rospy.on_shutdown(shutdown_callback)
 
     rospy.spin()

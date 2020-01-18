@@ -67,6 +67,10 @@ catkin_python_setup()
 #   Service2.srv
 # )
 
+add_message_files(
+  DIRECTORY msg
+  FILES DispatchPlanFeedback.msg)
+
 add_service_files(
   DIRECTORY srv
   FILES StackGoalService.srv)

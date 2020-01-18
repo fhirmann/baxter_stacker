@@ -17,6 +17,8 @@ from reasoning_planning_helper.reasoning_planning_interface import *
 
 from reasoning_planning.srv import StackGoalService, StackGoalServiceResponse, StackGoalServiceRequest
 
+from reasoning_planning.msg import DispatchPlanFeedback
+
 
 def create_simple_test_scene_request_correct():
     """create_simple_test_scene_request_correct create a correct stack goal for the simple test scene with two yellow blocks side-by-side
@@ -82,14 +84,13 @@ def main():
     stack_goal_service = rospy.ServiceProxy('/stack_goal_service', StackGoalService)
 
     req = create_simple_test_scene_request_correct()
-
-    rospy.loginfo("request:")
-    print req
+    rospy.loginfo("request:\n{}".format(req))
 
     response = stack_goal_service(req)
+    rospy.loginfo("response:\n{}".format(response))
 
-    rospy.loginfo("response:")
-    print response
+    feedback = rospy.wait_for_message('/dispatch_plan_feedback', DispatchPlanFeedback)
+    rospy.loginfo("feedback:\n{}".format(feedback))
 
 if __name__ == "__main__":
     main()

@@ -50,6 +50,7 @@ int8 PROBLEM_UNSOLVABLE = 3
 int8 OTHER_ERROR = 4
 int8 NOT_SUCCESSFULLY_RECEIVED_BLOCKS_FROM_PERCEPTION = 5
 int8 LESS_THAN_TWO_BLOCKS_RECEIVED_FROM_PERCEPTION = 6
+int8 CURRENTLY_EXECUTING_PLAN = 7
 
 int8 top_block_error # errors regarding the top block (semantics)
 int8 below_block_error # errors regarding the below block (semantics)
