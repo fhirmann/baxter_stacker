@@ -24,8 +24,9 @@ def putdown(pose):
     print "Service call failed: %s"%e
 
 if __name__ == "__main__":
-  success = pickup(1)
-  print "kmr pick up successful? ", success
+  success, error_code = pickup(1)
+  print ("kmr pick up successful? ", success)
+  print ("kmr pick up successful? ", error_code)
 
   block_pose = PoseStamped()
   block_pose.header.frame_id = "/world"
@@ -40,7 +41,8 @@ if __name__ == "__main__":
   block_pose.pose.position.y = 0.4 #= 0.08
   block_pose.pose.position.z = -0.16
 
-  success = putdown(block_pose)
-  print "kmr pit down successful? ", success
+  result = putdown(block_pose)
+  print "kmr pit down successful? ", result
+
 
 

@@ -1,3 +1,13 @@
 uint64 block_id
 ---
 bool success
+int8 error_code
+
+#error codes for pickup
+int8 NO_ERROR = 0
+int8 HOLD_BLOCK = 1         # arm already picked up a block, e.g. pickup has been called twice
+int8 BLOCK_NOT_FOUND = 2    # block with given ID could not be found in database
+int8 PLAN_PRE_GRASP = 3     # no motion plan found for pre-grasp pose
+int8 MOVEIT_SCENE_ERROR = 4 # moveit planning scene was not able to remove or add a block from or to scene
+int8 PLAN_GRASP = 5         # no motion plan found for grasp pose
+int8 PLAN_POST_GRASP = 6    # no motion plan found for post-grasp pose
