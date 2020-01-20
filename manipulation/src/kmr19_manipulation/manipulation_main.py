@@ -33,7 +33,7 @@ def handle_pick_up(req):
   print("[kmr19_manipulation_server]: Got request to pick up block with ID: ", req.block_id)
 
   #load scene from data base
-  #scene_ctrl.loadSceneDatabase()
+  scene_ctrl.loadSceneDatabase()
 
   #check if robot already holds block
   if arm_ctrl.l_holds_block:
@@ -218,9 +218,9 @@ def kmr19_manipulation_server():
 
   #init position and gripper init
   left_arm_init = arm_ctrl.moveToInitPosition(arm='left')
-  left_gripper_init = arm_ctrl.initGripper(arm='left', gripper_open=True, block=False)
+  left_gripper_init = arm_ctrl.initGripper(arm='left', gripper_open=True, block=True)
   right_arm_init = arm_ctrl.moveToInitPosition(arm='right')
-  right_gripper_init = arm_ctrl.initGripper(arm='right', gripper_open=True, block=False)
+  right_gripper_init = arm_ctrl.initGripper(arm='right', gripper_open=True, block=True)
 
   print("[kmr19_manipulation_server]: Left arm init successful? ", left_arm_init)
   print("[kmr19_manipulation_server]: Left gripper init successful? ", left_gripper_init)

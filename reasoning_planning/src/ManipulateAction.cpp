@@ -24,6 +24,12 @@ ManipulateAction::ManipulateAction()
         ros::service::waitForService(service_name);
         ROS_INFO("service %s is now running",service_name.c_str());
     } 
+
+    ros::NodeHandle nh;
+
+    action_feedback_publisher = nh.advertise<reasoning_planning::DispatchPlanFeedback>("action_feedback",100);
+
+
 }
 
 

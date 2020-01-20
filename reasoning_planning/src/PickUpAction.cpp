@@ -55,6 +55,18 @@ bool PickUpAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch:
         return false;
     }
 
+    if (!srv.response.success)
+    {
+        reasoning_planning::DispatchPlanFeedback msg;
+        msg.success = false;
+
+        msg.error_code = srv.response.error_code + 20;
+
+        ROS_INFO_STREAM("PickupAction: manipulation_response:\n" << srv.response);
+
+        action_feedback_publisher.publish(msg);
+    }
+
     return srv.response.success;
 }
 

@@ -13,6 +13,9 @@ using namespace geometry_msgs;
 #include "perception/Block.h"
 
 
+#include "reasoning_planning/DispatchPlanFeedback.h"
+
+
 class ManipulateAction: public KCL_rosplan::RPActionInterface
 {
 
@@ -35,4 +38,6 @@ protected:
 
 	bool get_where_on_table(std::string block_name, std::string& found_location_name);
 	bool get_where_on(std::string block_name, std::string& found_block_bottom_name);
+
+	ros::Publisher action_feedback_publisher;
 };

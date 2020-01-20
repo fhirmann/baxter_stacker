@@ -89,8 +89,9 @@ def main():
     response = stack_goal_service(req)
     rospy.loginfo("response:\n{}".format(response))
 
-    feedback = rospy.wait_for_message('/dispatch_plan_feedback', DispatchPlanFeedback)
-    rospy.loginfo("feedback:\n{}".format(feedback))
+    if response.success:
+        feedback = rospy.wait_for_message('/dispatch_plan_feedback', DispatchPlanFeedback)
+        rospy.loginfo("feedback:\n{}".format(feedback))
 
 if __name__ == "__main__":
     main()

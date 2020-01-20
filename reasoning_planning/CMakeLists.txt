@@ -8,6 +8,7 @@ add_compile_options(-std=c++11)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  roscpp
   rospy
   std_msgs
   rosplan_planning_system
@@ -167,10 +168,10 @@ add_executable(unstackAction src/UnstackAction.cpp src/ManipulateAction.cpp)
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 #add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-add_dependencies(pickUpAction ${catkin_EXPORTED_TARGETS})
-add_dependencies(putDownAction ${catkin_EXPORTED_TARGETS})
-add_dependencies(stackAction ${catkin_EXPORTED_TARGETS})
-add_dependencies(unstackAction ${catkin_EXPORTED_TARGETS})
+add_dependencies(pickUpAction ${catkin_EXPORTED_TARGETS} reasoning_planning_generate_messages_cpp)
+add_dependencies(putDownAction ${catkin_EXPORTED_TARGETS} reasoning_planning_generate_messages_cpp)
+add_dependencies(stackAction ${catkin_EXPORTED_TARGETS} reasoning_planning_generate_messages_cpp)
+add_dependencies(unstackAction ${catkin_EXPORTED_TARGETS} reasoning_planning_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(${PROJECT_NAME}_node

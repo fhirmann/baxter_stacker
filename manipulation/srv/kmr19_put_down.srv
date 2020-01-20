@@ -3,7 +3,7 @@ geometry_msgs/PoseStamped end_position
 bool success
 int8 error_code
 
-#error codes for pickup
+#error codes for put down
 int8 NO_ERROR = 0
 int8 HOLD_NO_BLOCK = 1      # arm already picked up a block, e.g. pickup has been called twice
 int8 PLAN_PRE_RELEASE = 2   # no motion plan found for pre-release pose

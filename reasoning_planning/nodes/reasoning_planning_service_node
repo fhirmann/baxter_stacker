@@ -39,18 +39,23 @@ dispatch_plan_async_thread = None
 
 last_action_feedback_lock = threading.Lock()
 last_action_feedback_msg = None
-last_action_feedback_msg_time = rospy.Time(0)
+last_action_feedback_msg_time = None
 
 def action_feedback_callback(data):
+    global last_action_feedback_msg, last_action_feedback_msg_time, last_action_feedback_lock
     last_action_feedback_lock.acquire()
 
     last_action_feedback_msg = data
     last_action_feedback_msg_time = rospy.Time.now()
 
+    rospy.loginfo('Got new action feedback msg:\n{}\n'.format(last_action_feedback_msg))
+    rospy.loginfo('last_action_feedback_msg_time = {}'.format(last_action_feedback_msg_time))
+
     last_action_feedback_lock.release()
 
 
 def dispatch_plan_async():
+    global last_action_feedback_msg, last_action_feedback_msg_time, last_action_feedback_lock, dispatch_lock
     dispatch_lock.acquire()
 
     feedback = DispatchPlanFeedback()
@@ -66,26 +71,30 @@ def dispatch_plan_async():
             action_feedback_msg = None
 
             # there is no last message or it is old
-            if last_action_feedback_msg is None \ 
-                or last_action_feedback_msg_time < (rospy.Duration(5) - rospy.Time.now()):
+            if last_action_feedback_msg is None or (rospy.Time.now() - last_action_feedback_msg_time) > rospy.Duration(5):
 
                 try:
                     action_feedback_msg = rospy.wait_for_message('action_feedback',DispatchPlanFeedback, timeout=5)
                 except rospy.ROSException as e:
-                    feedback.error = DispatchPlanFeedback.OTHER_ERROR
+                    feedback.error_code = DispatchPlanFeedback.OTHER_ERROR
             else:
                 action_feedback_msg = last_action_feedback_msg
 
+
             last_action_feedback_lock.release()
+
+            rospy.loginfo('Recovered action_feedback_msg:\n{}'.format(action_feedback_msg))
             
             if action_feedback_msg is not None:
-                feedback.error = action_feedback_msg.error
+                feedback.error_code = action_feedback_msg.error_code
                 
             
 
     except Exception as e:
         feedback.success = False
-        feedback.error = DispatchPlanFeedback.OTHER_ERROR
+        feedback.error_code = DispatchPlanFeedback.OTHER_ERROR
+
+    rospy.loginfo('Finished goal execution in separate thread.\nGiving feedback:\n{}'.format(feedback))
 
     dispatch_plan_feedback_pub.publish(feedback)
 
