@@ -83,7 +83,7 @@ class kmr19SceneControl:
 
     name = str(block.id)
     # add to MoveIt scene
-    self.scene.add_box(name, tmp_pose, size=(block.depth, block.width, block.height))
+    self.scene.add_box(name, tmp_pose, size=(block.depth, block.width, block.height*0.8))
     # wait until scene is changed
     return self.checkObject(3, name, obj_is_attached=False, obj_is_known=True)
 

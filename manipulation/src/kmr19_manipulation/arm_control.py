@@ -94,9 +94,6 @@ class kmr19ArmCtrl:
 
     group.set_planning_time(30.0)
 
-    listener = tf.TransformListener()
-    listener.waitForTransform(link, "world", rospy.Time(), rospy.Duration(10.0))
-
     #init target pose
     target_pose = group.get_current_pose(end_effector_link=link)
 
@@ -117,9 +114,6 @@ class kmr19ArmCtrl:
       group.set_max_velocity_scaling_factor(0.2)
       group.set_max_acceleration_scaling_factor(0.2)
 
-      #get orientation for constraint in end effector frame
-      tmp_pose = listener.transformPose(link, target_pose)
-
       #generate constraints and orientation constraint object
       constraints = Constraints()
       ocm = OrientationConstraint()
@@ -127,15 +121,17 @@ class kmr19ArmCtrl:
       #define orientation constraint
       ocm.header.frame_id = "/world"
       ocm.link_name = link
-      ocm.orientation = tmp_pose.pose.orientation
-      ocm.absolute_x_axis_tolerance = pi/4
-      ocm.absolute_y_axis_tolerance = pi/4
-      ocm.absolute_z_axis_tolerance = pi/4
+      ocm.orientation = target_pose.pose.orientation
+      ocm.absolute_x_axis_tolerance = pi/8
+      ocm.absolute_y_axis_tolerance = pi/8
+      ocm.absolute_z_axis_tolerance = pi/8
       ocm.weight = 1
 
       #add constraint to planner
       constraints.orientation_constraints.append(ocm)
       group.set_path_constraints(constraints)
+    else:
+      group.clear_path_constraints()
 
     if use_cartesian:
       #cartesian path waypoints
@@ -189,9 +185,6 @@ class kmr19ArmCtrl:
 
     group.set_planning_time(30.0)
 
-    listener = tf.TransformListener()
-    listener.waitForTransform(link, "world", rospy.Time(), rospy.Duration(10.0))
-
     #init target pose
     target_pose = group.get_current_pose(end_effector_link=link)
 
@@ -212,9 +205,6 @@ class kmr19ArmCtrl:
       group.set_max_velocity_scaling_factor(0.2)
       group.set_max_acceleration_scaling_factor(0.2)
 
-      #get orientation for constraint in end effector frame
-      tmp_pose = listener.transformPose(link, target_pose)
-
       #generate constraints and orientation constraint object
       constraints = Constraints()
       ocm = OrientationConstraint()
@@ -222,10 +212,10 @@ class kmr19ArmCtrl:
       #define orientation constraint
       ocm.header.frame_id = "/world"
       ocm.link_name = link
-      ocm.orientation = tmp_pose.pose.orientation
-      ocm.absolute_x_axis_tolerance = pi/2
-      ocm.absolute_y_axis_tolerance = pi/2
-      ocm.absolute_z_axis_tolerance = pi/2
+      ocm.orientation = target_pose.pose.orientation
+      ocm.absolute_x_axis_tolerance = pi/8
+      ocm.absolute_y_axis_tolerance = pi/8
+      ocm.absolute_z_axis_tolerance = pi/8
       ocm.weight = 1
 
       #add constraint to planner
@@ -236,18 +226,18 @@ class kmr19ArmCtrl:
       # cartesian path waypoints
       waypoints = []
 
-      target_pose.position.x = tmp_pose.pose.position.x
-      target_pose.position.y = tmp_pose.pose.position.y
-      target_pose.position.z = tmp_pose.pose.position.z + height_dif/2
+      target_pose.pose.position.x = tmp_pose.pose.position.x
+      target_pose.pose.position.y = tmp_pose.pose.position.y
+      target_pose.pose.position.z = tmp_pose.pose.position.z + height_dif/2
 
       # add target position
       waypoints.append(copy.deepcopy(target_pose))
-      target_pose.position.z = tmp_pose.pose.position.z + height_dif/2
+      target_pose.pose.position.z = tmp_pose.pose.position.z + height_dif/2
       waypoints.append(copy.deepcopy(target_pose))
 
       # compute path
       (plan, fraction) = group.compute_cartesian_path(waypoints,  # waypoints to follow
-                                                      0.001,  # eef_step
+                                                      0.01,  # eef_step
                                                       0.0)  # jump_threshold
     else:
       target_pose.pose.position.x = tmp_pose.pose.position.x
@@ -255,7 +245,7 @@ class kmr19ArmCtrl:
       target_pose.pose.position.z = tmp_pose.pose.position.z + height_dif
 
       # set target pose in MoveIt Commander
-      group.set_pose_target(target_pose.pose, link)
+      group.set_pose_target(target_pose, link)
 
       plan = group.plan()
 
@@ -280,9 +270,9 @@ class kmr19ArmCtrl:
     else:
       #execute plan
       group.execute(plan, wait=True)
-      group.stop()
       group.clear_pose_targets()
       group.clear_path_constraints()
+      group.stop()
       success = True
 
     group.set_max_acceleration_scaling_factor(1)
