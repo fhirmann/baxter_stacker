@@ -340,6 +340,32 @@ def handle_stack_goal_service(req):
 
         return response
 
+    # check if each block ID only appears once
+    id_dict = dict()
+    for block in all_blocks:
+        if block.id not in id_dict:
+            id_dict[block.id] = 1
+        else:
+            id_dict[block.id] = id_dict[block.id] + 1
+    
+    for count in id_dict.itervalues():
+        if count > 1:
+            rospy.loginfo("There is more than one block with the same ID in the scene database. It is not possible to solve a plan for this. Most likely this is caused by multiple blocks with same color and also same shape.")
+            response = StackGoalServiceResponse()
+
+            response.success = False
+            response.top_block_error = StackGoalServiceResponse.NO_ERROR
+            response.below_block_error = StackGoalServiceResponse.NO_ERROR
+            response.general_error = StackGoalServiceResponse.MULTIPLE_BLOCKS_WITH_SAME_BLOCK_ID
+            
+            rospy.loginfo("handle_stack_goal_service: response: \n{}".format(response))
+
+            return response
+
+
+
+
+
     
     top_blocks_filtered = get_filtered_blocks_without_relative_semantics(all_blocks, req.top_block_semantics)
 

@@ -82,6 +82,34 @@ bool PutDownAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch
         action_feedback_publisher.publish(msg);
     }
 
+    // check if manipulation was successful based on perception	
+    // scene db is already updated from above
+	error_codes error = checkSceneDbAgainstPerception();
+    if (error != NO_ERROR)
+    {
+        reasoning_planning::DispatchPlanFeedback msg;
+        msg.success = false;
+
+        switch (error)
+        {
+        case CANNOT_GET_SCENE_FROM_PERCEPTION:
+        case CANNOT_GET_SCENE_FROM_SCENE_DB:
+            msg.error_code = reasoning_planning::DispatchPlanFeedback::SERVICE_NOT_REACHABLE;
+            break;
+        case BLOCK_LISTS_NOT_SIMILAR:
+            msg.error_code = reasoning_planning::DispatchPlanFeedback::PERCEPTION_DETECTED_DIFFERENT_POSITION_THAN_EXPECTED;
+            break;
+        default:
+            msg.error_code = reasoning_planning::DispatchPlanFeedback::OTHER_ERROR;
+            break;
+        }
+
+        ROS_INFO_STREAM("PutDownAction: manipulation_response:\n" << srv.response);
+
+        action_feedback_publisher.publish(msg);
+        return false;
+    }
+
     return srv.response.success;
 }
 

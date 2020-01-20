@@ -11,6 +11,8 @@
 
 using namespace geometry_msgs;
 
+#include "perception/GetScene.h"
+
 
 ManipulateAction::ManipulateAction()
 {
@@ -272,4 +274,146 @@ bool ManipulateAction::update_block_pose(std::string name, geometry_msgs::PoseSt
     }
 
     return true;
+}
+
+
+bool ManipulateAction::getPerceptionSceneBlockList(std::vector<perception::Block> &block_list)
+{
+    ros::NodeHandle n;
+
+    ros::ServiceClient client = n.serviceClient<perception::GetScene>("/get_scene");
+
+    perception::GetScene srv;
+
+    ROS_INFO_STREAM("ManipulateAction::getSceneBlockList(...): request: " << srv.request);
+
+    if (client.call(srv))
+    {
+        ROS_INFO("ManipulateAction::getSceneBlockList(...): Success: %d", (int)srv.response.success);
+
+        if (srv.response.success)
+        {
+            block_list = srv.response.blocks;
+        }
+
+        return srv.response.success;
+
+    }
+    else
+    {
+        ROS_ERROR("ManipulateAction::getSceneBlockList(...): Failed to call service get_scene");
+        return false;
+    }
+}
+
+
+bool ManipulateAction::getSceneDbBlockList(std::vector<perception::Block> &block_list)
+{
+
+    ros::NodeHandle nh;
+    mongodb_store::MessageStoreProxy messageStore(nh);    
+
+    std::vector< boost::shared_ptr<perception::Block> > results;
+
+    if(!messageStore.query<perception::Block>(results))
+    {
+        ROS_ERROR("Block list could not be retrieved. Either there is a database error or there is no block added in the scene database");
+        return false;
+    }
+
+    block_list.clear();
+
+    for (auto &&block : results)
+    {
+        block_list.push_back(*block);
+    }
+
+    return true;
+}
+
+bool ManipulateAction::checkIfBlocksListsSimilar(std::vector<perception::Block> &block_list_1, std::vector<perception::Block> &block_list_2)
+{
+    if (block_list_1.size() != block_list_2.size())
+    {
+        return false;
+    }
+
+    for (auto &&block : block_list_1)
+    {
+        // search for correct block to check
+
+        // filter by block id 
+        // ID = color_code * 10 + block_type_code
+        // ID is therefore not exclusive but the constraints on the tests are in that way such that there is only one block type-and-color combination possible
+
+        size_t same_block_id_position = -1;
+        int same_block_id_counter = 0;
+        for (size_t i = 0; i < block_list_2.size(); i++)
+        {
+            if (block.id == block_list_2[i].id)
+            {
+                same_block_id_position = i;
+                ++same_block_id_counter;
+            }
+        }
+
+        if (same_block_id_position < 1)
+        {
+            ROS_INFO("ManipulateAction::checkIfBlocksListsSimilar(...): There is a block ID not in the other list");
+            ROS_INFO_STREAM( "other block: id = " << block.id << "; position: x = " << block.pose.pose.position.x << "; y = " << block.pose.pose.position.y << "; z = " << block.pose.pose.position.z );
+            return false;
+        }
+        else if (same_block_id_counter > 1)
+        {
+            ROS_INFO("ManipulateAction::checkIfBlocksListsSimilar(...): There are multiple same block IDs in the other list");
+            ROS_INFO_STREAM( "other block: id = " << block.id << "; position: x = " << block.pose.pose.position.x << "; y = " << block.pose.pose.position.y << "; z = " << block.pose.pose.position.z );
+            return false;
+        } 
+
+        double distance = getEuclideanDistance(block, block_list_2[same_block_id_position]);
+
+        if (distance > 2./100.)
+        {
+            ROS_INFO("ManipulateAction::checkIfBlocksListsSimilar(...): There is a too high error between the blocks with the same ID");
+            ROS_INFO_STREAM( "first block: id = " << block.id << "; position: x = " << block.pose.pose.position.x << "; y = " << block.pose.pose.position.y << "; z = " << block.pose.pose.position.z );
+            ROS_INFO_STREAM( "second block: id = " << block_list_2[same_block_id_position].id << "; position: x =" << block_list_2[same_block_id_position].pose.pose.position.x << "; y = " << block_list_2[same_block_id_position].pose.pose.position.y << "; z = " << block_list_2[same_block_id_position].pose.pose.position.z );
+        
+            return false;
+        }
+
+    }
+
+
+    return true;
+}
+
+double ManipulateAction::getEuclideanDistance(perception::Block block1, perception::Block block2)
+{
+    auto &pos1 = block1.pose.pose.position;
+    auto &pos2 = block2.pose.pose.position;
+    return sqrt(pow(pos2.x - pos1.x,2) + pow(pos2.y - pos1.y,2) + pow(pos2.z - pos1.z,2));
+}
+
+ManipulateAction::error_codes ManipulateAction::checkSceneDbAgainstPerception()
+{
+    std::vector<perception::Block> perception_block_list;
+    if (!getPerceptionSceneBlockList(perception_block_list))
+    {
+
+        return CANNOT_GET_SCENE_FROM_PERCEPTION;
+    }
+
+    std::vector<perception::Block> scene_db_block_list;
+    if (!getSceneDbBlockList(scene_db_block_list))
+    {
+        return CANNOT_GET_SCENE_FROM_SCENE_DB;
+    }
+
+    if (!checkIfBlocksListsSimilar(perception_block_list, scene_db_block_list))
+    {
+        return BLOCK_LISTS_NOT_SIMILAR;
+    }
+
+    return NO_ERROR;
+
 }
