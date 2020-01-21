@@ -117,6 +117,8 @@ class Filter
     int    col_seg_max_cluster_size_;
     double col_seg_dist_threshold_;
     double col_seg_scale_z_;
+    double col_seg_scale_y_;
+    double col_seg_center_y_;
 
 
     double block_plane_dist_threshold_;
@@ -167,6 +169,8 @@ class Filter
       if(!nh_.getParam("/filter/col_seg_min_saturation",    col_seg_min_saturation_))   ok = false;
       if(!nh_.getParam("/filter/col_seg_min_value",         col_seg_min_value_))        ok = false;
       if(!nh_.getParam("/filter/col_seg_scale_z",           col_seg_scale_z_))          ok = false;
+      if(!nh_.getParam("/filter/col_seg_scale_y",           col_seg_scale_y_))          ok = false;
+      if(!nh_.getParam("/filter/col_seg_center_y",          col_seg_center_y_))         ok = false;
 
       //ROS_INFO_STREAM(" load_param: ok3 " << ok);
 
@@ -539,7 +543,9 @@ class Filter
         for (std::vector<int>::const_iterator point = i->indices.begin(); point != i->indices.end(); point++) {
           if( hsv_cloud_->points[*point].s > col_seg_min_saturation_ && hsv_cloud_->points[*point].v > col_seg_min_value_) //removes withe and black points
           {
-            // camera delivers spread out points -> at least counter the distribution in the z-axis with scaling it
+            // camera delivers spread out points -> counter z axis distribution by a simple multiplication
+            //                                   -> counter y axis distribution around the middle of the picture (~60 in table frame)
+            hsv_cloud_->points[*point].y = col_seg_center_y_ - ( col_seg_center_y_ - hsv_cloud_->points[*point].y) * col_seg_scale_y_;
             hsv_cloud_->points[*point].z *= col_seg_scale_z_;
             cluster->points.push_back(hsv_cloud_->points[*point]);
           }
