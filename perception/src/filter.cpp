@@ -119,6 +119,8 @@ class Filter
     double col_seg_scale_z_;
     double col_seg_scale_y_;
     double col_seg_center_y_;
+    double col_seg_scale_x_;
+    double col_seg_center_x_;
 
 
     double block_plane_dist_threshold_;
@@ -171,6 +173,8 @@ class Filter
       if(!nh_.getParam("/filter/col_seg_scale_z",           col_seg_scale_z_))          ok = false;
       if(!nh_.getParam("/filter/col_seg_scale_y",           col_seg_scale_y_))          ok = false;
       if(!nh_.getParam("/filter/col_seg_center_y",          col_seg_center_y_))         ok = false;
+      if(!nh_.getParam("/filter/col_seg_scale_x",           col_seg_scale_x_))          ok = false;
+      if(!nh_.getParam("/filter/col_seg_center_x",          col_seg_center_x_))         ok = false;
 
       //ROS_INFO_STREAM(" load_param: ok3 " << ok);
 
@@ -545,6 +549,8 @@ class Filter
           {
             // camera delivers spread out points -> counter z axis distribution by a simple multiplication
             //                                   -> counter y axis distribution around the middle of the picture (~60 in table frame)
+            //                                   -> counter x axis distribution around the middle of the picture (~29 in table frame)
+            hsv_cloud_->points[*point].x = col_seg_center_x_ - ( col_seg_center_x_ - hsv_cloud_->points[*point].x) * col_seg_scale_x_;
             hsv_cloud_->points[*point].y = col_seg_center_y_ - ( col_seg_center_y_ - hsv_cloud_->points[*point].y) * col_seg_scale_y_;
             hsv_cloud_->points[*point].z *= col_seg_scale_z_;
             cluster->points.push_back(hsv_cloud_->points[*point]);
@@ -1311,6 +1317,10 @@ class Filter
       col_seg_max_cluster_size_(2000),
       col_seg_dist_threshold_(0.015),
       col_seg_scale_z_(0.87),
+      col_seg_scale_y_(0.92),
+      col_seg_center_y_(0.60),
+      col_seg_scale_x_(0.91),
+      col_seg_center_x_(0.29),
       block_plane_dist_threshold_(0.003),
       block_plane_max_iterations_(10),
       block_plane_min_points_(30),
