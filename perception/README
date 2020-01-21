@@ -18,7 +18,7 @@ Stating the Perception modul
 source src/kmr19/baxter_real_setup.sh 
 
 1.) start the camera driver with:
-roslaunch openni2_launch openni2.launch depth_registration:="true"
+roslaunch openni2_launch openni2.launch 
 
 check if in the output something with loaded the dept...yaml and rgb...yaml calibration file is displayed
 
