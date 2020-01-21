@@ -2,6 +2,7 @@
 
 #include <manipulation/kmr19_put_down.h>
 
+#include <tf/transform_datatypes.h>
 
 
 /* constructor */
@@ -49,7 +50,7 @@ bool PutDownAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch
     end_position_msg.pose.position.x = location_pose.position.x;
     end_position_msg.pose.position.y = location_pose.position.y;
     end_position_msg.pose.position.z = block.height/2.;
-    end_position_msg.pose.orientation = block.pose.pose.orientation;
+    end_position_msg.pose.orientation = tf::createQuaternionMsgFromYaw(0); // use no specific orientation but just yaw angle of zero
 
     srv.request.end_position = end_position_msg;
 

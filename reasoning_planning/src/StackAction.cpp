@@ -47,6 +47,7 @@ bool StackAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch::
     end_position_msg.pose.position.x = block_bottom_upper_face_center_pose.position.x;
     end_position_msg.pose.position.y = block_bottom_upper_face_center_pose.position.y;
     end_position_msg.pose.position.z = block_bottom_upper_face_center_pose.position.z + block_top.height/2.;
+    end_position_msg.pose.orientation = block_bottom_upper_face_center_pose.orientation;
 
 
     srv.request.end_position = end_position_msg;
