@@ -894,8 +894,8 @@ class Filter
             poseStamped.pose.position.y = y_min;
           }
           else {
-            poseStamped.pose.position.x = (x_max - x_min) / 2 + x_min;
-            poseStamped.pose.position.y = block.depth / 2 + y_min;
+            poseStamped.pose.position.x = block.depth / 2 + x_min;
+            poseStamped.pose.position.y = (y_max - y_min) / 2 + y_min;
           }
           poseStamped.pose.position.z = (z_max - z_min)/2 + z_min;
 
