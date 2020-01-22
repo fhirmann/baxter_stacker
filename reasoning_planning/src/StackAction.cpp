@@ -54,13 +54,15 @@ bool StackAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch::
 
     ROS_INFO_STREAM("request: " << srv.request);
 
+    bool success = false;
+
     if (client.call(srv))
     {
         ROS_INFO("Success: %d", (int)srv.response.success);
 
         if (srv.response.success)
         {
-            return update_block_pose(block_top_name, end_position_msg);
+            success = update_block_pose(block_top_name, end_position_msg);
         }
     }
     else
@@ -80,36 +82,50 @@ bool StackAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch::
 
         action_feedback_publisher.publish(msg);
     }
-
-    // check if manipulation was successful based on perception	
-    // scene db is already updated from above
-	error_codes error = checkSceneDbAgainstPerception();
-    if (error != NO_ERROR)
+    else if (!success)
     {
         reasoning_planning::DispatchPlanFeedback msg;
         msg.success = false;
-
-        switch (error)
-        {
-        case CANNOT_GET_SCENE_FROM_PERCEPTION:
-        case CANNOT_GET_SCENE_FROM_SCENE_DB:
-            msg.error_code = reasoning_planning::DispatchPlanFeedback::SERVICE_NOT_REACHABLE;
-            break;
-        case BLOCK_LISTS_NOT_SIMILAR:
-            msg.error_code = reasoning_planning::DispatchPlanFeedback::PERCEPTION_DETECTED_DIFFERENT_POSITION_THAN_EXPECTED;
-            break;
-        default:
-            msg.error_code = reasoning_planning::DispatchPlanFeedback::OTHER_ERROR;
-            break;
-        }
-
-        ROS_INFO_STREAM("PutDownAction: manipulation_response:\n" << srv.response);
+        msg.error_code = reasoning_planning::DispatchPlanFeedback::SERVICE_NOT_REACHABLE;
+            
+        ROS_INFO_STREAM("StackAction: manipulation_response:\n" << srv.response);
 
         action_feedback_publisher.publish(msg);
         return false;
     }
+    else
+    {
 
-    return srv.response.success;
+        // check if manipulation was successful based on perception	
+        // scene db is already updated from above
+        error_codes error = checkSceneDbAgainstPerception();
+        if (error != NO_ERROR)
+        {
+            reasoning_planning::DispatchPlanFeedback msg;
+            msg.success = false;
+
+            switch (error)
+            {
+            case CANNOT_GET_SCENE_FROM_PERCEPTION:
+            case CANNOT_GET_SCENE_FROM_SCENE_DB:
+                msg.error_code = reasoning_planning::DispatchPlanFeedback::SERVICE_NOT_REACHABLE;
+                break;
+            case BLOCK_LISTS_NOT_SIMILAR:
+                msg.error_code = reasoning_planning::DispatchPlanFeedback::PERCEPTION_DETECTED_DIFFERENT_POSITION_THAN_EXPECTED;
+                break;
+            default:
+                msg.error_code = reasoning_planning::DispatchPlanFeedback::OTHER_ERROR;
+                break;
+            }
+
+            ROS_INFO_STREAM("PutDownAction: manipulation_response:\n" << srv.response);
+
+            action_feedback_publisher.publish(msg);
+            return false;
+        }
+    }
+
+    return success;
 }
 
 
