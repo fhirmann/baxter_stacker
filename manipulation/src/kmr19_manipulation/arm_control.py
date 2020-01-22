@@ -92,28 +92,36 @@ class kmr19ArmCtrl:
       link = 'right_gripper'
       frame = "right_gripper"
 
-    group.set_planning_time(30.0)
+    group.set_planning_time(15.0)
+
+    #transform pose to right coordinate frame
+    block_frame_id = block_pose.header.frame_id
+    listener = tf.TransformListener()
+    listener.waitForTransform("world", block_frame_id, rospy.Time(), rospy.Duration(4.0))
+    listener.waitForTransform("world", block_frame_id, rospy.Time.now(), rospy.Duration(4.0))
+    tmp_pose = listener.transformPose("world", block_pose)
 
     #init target pose
     target_pose = group.get_current_pose(end_effector_link=link)
+    #save current pose
+    current_pose = target_pose
 
     #change orientation of target pose to bring gripper in right direction
-    q_orig = np.array([block_pose.pose.orientation.x, block_pose.pose.orientation.y, block_pose.pose.orientation.z, block_pose.pose.orientation.w])
+    q_orig = np.array([tmp_pose.pose.orientation.x, tmp_pose.pose.orientation.y, tmp_pose.pose.orientation.z, tmp_pose.pose.orientation.w])
     q_rot = quaternion_from_euler(-pi, 0, -pi)   # x = 0, y = 1, z = w = 0
     #apply rotation off gripper frame to block orientation
     q_new = quaternion_multiply(q_rot, q_orig)
-
+    #set target orientation and position
     target_pose.pose.orientation.x = q_new[0]
     target_pose.pose.orientation.y = q_new[1]
     target_pose.pose.orientation.z = q_new[2]
     target_pose.pose.orientation.w = q_new[3]
-
     target_pose.header.stamp = rospy.Time(0)
+    target_pose.pose.position.x = tmp_pose.pose.position.x
+    target_pose.pose.position.y = tmp_pose.pose.position.y
+    target_pose.pose.position.z = tmp_pose.pose.position.z + height_dif
 
     if use_constraint:
-      group.set_max_velocity_scaling_factor(0.2)
-      group.set_max_acceleration_scaling_factor(0.2)
-
       #generate constraints and orientation constraint object
       constraints = Constraints()
       ocm = OrientationConstraint()
@@ -130,32 +138,27 @@ class kmr19ArmCtrl:
       #add constraint to planner
       constraints.orientation_constraints.append(ocm)
       group.set_path_constraints(constraints)
-    else:
-      group.clear_path_constraints()
 
     if use_cartesian:
       #cartesian path waypoints
       waypoints = []
+      #get detla z between current pose and target pose
+      delta_z = current_pose.pose.position.z - target_pose.pose.position.z
 
-      #generate first waypoint
-      target_pose.position.x = block_pose.pose.position.x
-      target_pose.position.y = block_pose.pose.position.y
-      target_pose.position.z = block_pose.pose.position.z + height_dif/2
+      for i in range(5):
+        #calc positions on path
+        current_pose.pose.position.z -= delta_z/5
+        #add target positions and generate second waypoint
+        waypoints.append(copy.deepcopy(target_pose.pose))
 
-      #add target positions and generate second waypoint
-      waypoints.append(copy.deepcopy(target_pose))
-      target_pose.position.z = block_pose.pose.position.z + height_dif/2
-      waypoints.append(copy.deepcopy(target_pose))
-
-      #compute path
-      (plan, fraction) = group.compute_cartesian_path(waypoints,  # waypoints to follow
-                                                      0.001,       # eef_step
-                                                      0.0)        # jump_threshold
+      #compute paths until 100% of requirements are fullfilled
+      fraction = 0
+      while fraction < 1.0:
+        #compute path
+        (plan, fraction) = group.compute_cartesian_path(waypoints,  # waypoints to follow
+                                                        0.001,      # eef_step
+                                                        0.0)        # jump_threshold
     else:
-      target_pose.pose.position.x = block_pose.pose.position.x
-      target_pose.pose.position.y = block_pose.pose.position.y
-      target_pose.pose.position.z = block_pose.pose.position.z + height_dif
-
       #set target pose in MoveIt Commander
       group.set_pose_target(target_pose.pose, link)
 
@@ -183,7 +186,7 @@ class kmr19ArmCtrl:
       group = self.group_r
       link = 'right_gripper'
 
-    group.set_planning_time(30.0)
+    group.set_planning_time(15.0)
 
     #init target pose
     target_pose = group.get_current_pose(end_effector_link=link)
@@ -202,9 +205,6 @@ class kmr19ArmCtrl:
     target_pose.header.stamp = rospy.Time(0)
 
     if use_constraint:
-      group.set_max_velocity_scaling_factor(0.2)
-      group.set_max_acceleration_scaling_factor(0.2)
-
       #generate constraints and orientation constraint object
       constraints = Constraints()
       ocm = OrientationConstraint()
@@ -225,19 +225,15 @@ class kmr19ArmCtrl:
     if use_cartesian:
       # cartesian path waypoints
       waypoints = []
-
       target_pose.pose.position.x = tmp_pose.pose.position.x
       target_pose.pose.position.y = tmp_pose.pose.position.y
-      target_pose.pose.position.z = tmp_pose.pose.position.z + height_dif/2
-
+      target_pose.pose.position.z = tmp_pose.pose.position.z + height_dif
       # add target position
-      waypoints.append(copy.deepcopy(target_pose))
-      target_pose.pose.position.z = tmp_pose.pose.position.z + height_dif/2
-      waypoints.append(copy.deepcopy(target_pose))
+      waypoints.append(copy.deepcopy(target_pose.pose))
 
       # compute path
       (plan, fraction) = group.compute_cartesian_path(waypoints,  # waypoints to follow
-                                                      0.01,  # eef_step
+                                                      0.001,  # eef_step
                                                       0.0)  # jump_threshold
     else:
       target_pose.pose.position.x = tmp_pose.pose.position.x

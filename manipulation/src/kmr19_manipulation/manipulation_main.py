@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-#TODO: Position constraint
-#TODO: Detach block if moveto init
+#TODO: Code cleanup (arm_control)
+#TODO: Test Fabian quarternion stuff
+#TODO: When cartesian path not possible --> endless loop
 
 import sys
 import copy
@@ -50,7 +51,7 @@ def handle_pick_up(req):
     error_code = kmr19_pick_upResponse.BLOCK_NOT_FOUND
     return kmr19_pick_upResponse(success=False, error_code=error_code)
 
-  h_dif = block.height
+  h_dif = block.height*1.2
   
   #plan and execute pre grasp procedure
   plan = arm_ctrl.planBlockPickup(block_pose=block.pose, height_dif=h_dif, arm='left')
@@ -70,7 +71,8 @@ def handle_pick_up(req):
     return kmr19_pick_upResponse(success=False, error_code=error_code)
 
   #get motion plan for block pickup
-  plan = arm_ctrl.planBlockPickup(block_pose=block.pose, height_dif=0, arm='left', use_constraint=True)
+  print("DO GRASP")
+  plan = arm_ctrl.planBlockPickup(block_pose=block.pose, height_dif=0, arm='left', use_constraint=False, use_cartesian=True)
   # execute plan
   if not arm_ctrl.executePlan(plan, reduce_speed=True):
     print("[kmr19_manipulation_server]: Robot failed during grasp pose")
@@ -78,7 +80,7 @@ def handle_pick_up(req):
     error_code = kmr19_pick_upResponse.PLAN_GRASP
     return kmr19_pick_upResponse(success=False, error_code=error_code)
   rospy.sleep(1)
-
+  print("GRASP DONE")
   # close gripper
   gripped = arm_ctrl.pickupBlock(arm='left')
   # add block to scene and attach to arm
@@ -92,7 +94,7 @@ def handle_pick_up(req):
     return kmr19_pick_upResponse(success=False, error_code=error_code)
 
   #plan and execute post grasp procedure
-  plan = arm_ctrl.planBlockPickup(block_pose=block.pose, height_dif=h_dif, arm='left', use_constraint=True)
+  plan = arm_ctrl.planBlockPickup(block_pose=block.pose, height_dif=h_dif, arm='left', use_constraint=False, use_cartesian=True)
   if not arm_ctrl.executePlan(plan, reduce_speed=True):
     print("[kmr19_manipulation_server]: Robot failed during post grasp pose")
     arm_ctrl.moveToInitPosition(arm='left')
@@ -121,6 +123,9 @@ def handle_put_down(req):
   print("[kmr19_manipulation_server]: Got request to put down block at", req.end_position.pose.position.x, req.end_position.pose.position.y, req.end_position.pose.position.z)
   print("in frame ", req.end_position.header.frame_id)
 
+  #workaround for quarternion
+  #req.end_position.pose.orientation.w = 1.0
+
   #check if robot already holds block
   if not arm_ctrl.l_holds_block:
     print("[kmr19_manipulation_server]: Robot has to pick up a block first")
@@ -128,13 +133,15 @@ def handle_put_down(req):
     error_code = kmr19_put_downResponse.HOLD_NO_BLOCK
     return kmr19_put_downResponse(success=False, error_code=error_code)
 
-  h_dif = arm_ctrl.l_block.height
+  h_dif = arm_ctrl.l_block.height*1.2
 
   #plan and execute pre release procedure
-  plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position, height_dif=h_dif, arm='left')
+  #plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position, height_dif=h_dif, arm='left')
+  plan = arm_ctrl.planBlockPickup(block_pose=req.end_position, height_dif=h_dif, arm='left')
   if not arm_ctrl.executePlan(plan):
     print("[kmr19_manipulation_server]: Robot failed during pre release pose")
     arm_ctrl.moveToInitPosition(arm='left')
+    arm_ctrl.detachBlock(block_name=str(arm_ctrl.l_block.id))
     error_code = kmr19_put_downResponse.PLAN_PRE_RELEASE
     return kmr19_put_downResponse(success=False, error_code=error_code)
   rospy.sleep(1.5)
@@ -151,7 +158,8 @@ def handle_put_down(req):
     return kmr19_put_downResponse(success=False, error_code=error_code)
 
   # plan and execute release procedure
-  plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position, height_dif=0.0, arm='left', use_constraint=True)
+  #plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position, height_dif=0.0, arm='left', use_constraint=False, use_cartesian=True)
+  plan = arm_ctrl.planBlockPickup(block_pose=req.end_position, height_dif=0.005, arm='left', use_cartesian=True)
   if not arm_ctrl.executePlan(plan, reduce_speed=True):
     print("[kmr19_manipulation_server]: Robot failed during release pose")
     arm_ctrl.moveToInitPosition(arm='left')
@@ -163,7 +171,8 @@ def handle_put_down(req):
   arm_ctrl.releaseBlock()
 
   # plan and execute post release procedure
-  plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position, height_dif=h_dif, arm='left', use_constraint=True)
+  #plan = arm_ctrl.planBlockPutdown(goal_pose=req.end_position, height_dif=h_dif, arm='left', use_constraint=False, use_cartesian=True)
+  plan = arm_ctrl.planBlockPickup(block_pose=req.end_position, height_dif=h_dif, arm='left', use_cartesian=True)
   if not arm_ctrl.executePlan(plan, reduce_speed=True):
     print("[kmr19_manipulation_server]: Robot failed during post release pose")
     arm_ctrl.moveToInitPosition(arm='left')
@@ -173,7 +182,6 @@ def handle_put_down(req):
 
   #change position of block
   arm_ctrl.l_block.pose = req.end_position
-  arm_ctrl.l_block.pose.pose.orientation.w = 1.0
 
   # add block to scene
   if not scene_ctrl.addBlockToPlanningScene(arm_ctrl.l_block):

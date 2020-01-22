@@ -10,8 +10,8 @@ if __name__ == '__main__':
     first = 0
 
     while not rospy.is_shutdown():
-        br.sendTransform((0.223, 0.11, 0.881),
-                         tf.transformations.quaternion_from_euler(-0.02, 0.944, 0.05),
+        br.sendTransform((0.165, 0.088, 0.862),
+                         tf.transformations.quaternion_from_euler(0.01, 0.8825, 0.065),
                          rospy.Time.now(),
                          "camera_link",
                          "world")
