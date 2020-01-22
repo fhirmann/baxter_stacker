@@ -11,6 +11,7 @@ from math import pi
 from moveit_msgs.msg import Constraints
 from moveit_msgs.msg import OrientationConstraint
 import numpy as np
+from moveit_msgs.msg import RobotTrajectory
 
 class kmr19ArmCtrl:
   def __init__(self):
@@ -152,12 +153,16 @@ class kmr19ArmCtrl:
         waypoints.append(copy.deepcopy(target_pose.pose))
 
       #compute paths until 100% of requirements are fullfilled
-      fraction = 0
-      while fraction < 1.0:
+      for i in range(20):
         #compute path
-        (plan, fraction) = group.compute_cartesian_path(waypoints,  # waypoints to follow
-                                                        0.001,      # eef_step
-                                                        0.0)        # jump_threshold
+        (plan, fraction) = group.compute_cartesian_path(waypoints, 0.001, 0.0)        
+        if fraction == 1:
+            break
+      if fraction < 1:
+        print("########################################")
+        print("Cartesian Path failed")
+        print("########################################")
+        plan = RobotTrajectory()
     else:
       #set target pose in MoveIt Commander
       group.set_pose_target(target_pose.pose, link)
