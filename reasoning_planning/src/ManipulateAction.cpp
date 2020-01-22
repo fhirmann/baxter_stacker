@@ -335,6 +335,7 @@ bool ManipulateAction::checkIfBlocksListsSimilar(std::vector<perception::Block> 
 {
     if (block_list_1.size() != block_list_2.size())
     {
+        ROS_INFO("ManipulateAction::checkIfBlocksListsSimilar(...): Different number of blocks between perception and scene DB");
         return false;
     }
 
@@ -388,6 +389,7 @@ bool ManipulateAction::checkIfBlocksListsSimilar(std::vector<perception::Block> 
 
     }
 
+    ROS_INFO("ManipulateAction::checkIfBlocksListsSimilar(...): Check successful and blocks are detected as similar");
 
     return true;
 }
