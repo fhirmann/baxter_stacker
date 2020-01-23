@@ -233,7 +233,7 @@ class Filter
 
       //ROS_INFO_STREAM(" load_param: ok7 " << ok);
 
-      BLOCK_TYPE small_square;
+      /*BLOCK_TYPE small_square;
       if( nh_.getParam("/filter/block_type_small_square", param_list))
       {
         small_square.width  = param_list[0];
@@ -243,7 +243,7 @@ class Filter
         block_types_.push_back(small_square);
       }
       else
-        ok = false;
+        ok = false;*/
 
       //ROS_INFO_STREAM(" load_param: ok8 " << ok);
 
@@ -1073,7 +1073,7 @@ class Filter
     /*============================================================================*/
     void sensor_msg_callback (const sensor_msgs::PointCloud2ConstPtr& input)
     {
-      int duration = 30;
+      int duration = 5;
       count_ ++;
 
       if( debug_) duration = 1;//00;
