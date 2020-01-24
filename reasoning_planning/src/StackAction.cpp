@@ -98,6 +98,8 @@ bool StackAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch::
 
         // check if manipulation was successful based on perception	
         // scene db is already updated from above
+
+        ros::Duration(2.).sleep(); // sleep 2 seconds to let perception enough time to process the new scene
         error_codes error = checkSceneDbAgainstPerception();
         if (error != NO_ERROR)
         {

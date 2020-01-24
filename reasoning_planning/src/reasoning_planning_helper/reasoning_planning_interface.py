@@ -254,15 +254,15 @@ def get_all_blocks_from_db():
         
 
 def find_free_location():
-    x_min = 0.14
+    x_min = 0.20
     x_max = 0.34
 
     y_min = 0.40
-    y_max = 0.90
+    y_max = 0.80
 
-    max_tries = 1000 # randomly try that times to find a location which is not occupied (should definitely find some position)
+    max_tries = 10000 # randomly try that times to find a location which is not occupied (should definitely find some position)
 
-    min_space_between_location_and_block_center = 2 * 0.04 + 2. / 100 # 2 times the biggest block width/height plus additional space 
+    min_space_between_location_and_block_center = 2 * 0.04 + 1. / 100 # 2 times the biggest block width/height plus additional space 
 
     existing_blocks = get_all_blocks_from_db()
 

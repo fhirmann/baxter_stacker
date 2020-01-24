@@ -1073,7 +1073,7 @@ class Filter
     /*============================================================================*/
     void sensor_msg_callback (const sensor_msgs::PointCloud2ConstPtr& input)
     {
-      int duration = 5;
+      int duration = 30;
       count_ ++;
 
       if( debug_) duration = 1;//00;
