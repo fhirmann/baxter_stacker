@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>
-
+    
+    <node name="stanford_server" pkg="speech_recognition" type="launch_stanford_server.sh" />
     <node name="parser_client_node" pkg="speech_recognition" type="parser_client_node.py" respawn="false" output="screen"/>
     <node name="speech_request_node" pkg="speech_recognition" type="speech_request_node.py" respawn="false" output="screen"/>
     

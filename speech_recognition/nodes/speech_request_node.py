@@ -19,6 +19,8 @@ from six.moves import queue
 from reasoning_planning.srv import StackGoalService, StackGoalServiceResponse, StackGoalServiceRequest
 from speech_recognition.srv import CommSpeechParser, CommSpeechParserResponse, CommSpeechParserRequest
 
+from reasoning_planning.msg import DispatchPlanFeedback
+
 # Audio recording parameters
 RATE = 16000
 CHUNK = int(RATE / 10)  # 100ms
@@ -108,22 +110,26 @@ def responseHandler(listOfErrors):
                 responseToUser += "\nGENERAL REQUEST : "
             
             if (error == 1):
-                responseToUser += "Multiple same objects are defined. Be more precise about the scene."
+                responseToUser += "Multiple same objects defined"
             elif (error == 2):
-                responseToUser += "No object found. Are you sure it is on the scene ?"    
+                responseToUser += "No corresponding object found."    
             elif (error == 3):
-                responseToUser += "Request unsolvable. Please do another request or be more precise."
+                responseToUser += "Request unsolvable"
             elif (error == 4):
-                responseToUser += "Other error. Please try again or do another request."
+                responseToUser += "Other error type"
             elif (error == 5):
-                responseToUser += "Blocks unsuccessfully received from perception. Check camera."
+                responseToUser += "Blocks unsuccessfully received from perception."
             elif (error == 6):
-                responseToUser += "Less than two blocks on the scene. Action impossible."
+                responseToUser += "Less than two blocks on the scene"
+            elif (error == 7):
+                responseToUser += "Already executing a command."
+            elif (error == 8):
+                responseToUser += "Multiple identical blocks."
             nbErrors += 1
         indexInList += 1
         
     if (nbErrors == 0):
-        responseToUser += "This is a valid request."
+        responseToUser += "Valid request, executing the command..."
             
     textToSpeech(responseToUser)   
         
@@ -136,6 +142,7 @@ def publish_request(our_request):
     resp = speech_parser_request(our_request)
     
     print(responseHandler(resp.errorsResponse))
+    
     return resp
 
 
@@ -210,11 +217,47 @@ def listen_print_loop(responses):
             
             num_chars_printed = 0
 
+def dispatchCallback(data):
+    responseToUser = ""
+    if (data.success):
+        responseToUser = "Action complete"
+    else :
+        responseToUser = "Action error : "
+        
+        # constants used for below error field
+        if (data.error_code == data.MOTION_PLAN_NOT_FOUND):
+            responseToUser += "Motion plan not found"
+        elif (data.error_code == data.BLOCK_OUT_OF_RANGE):
+            responseToUser += "Block out of range"
+        elif (data.error_code == data.SERVICE_NOT_REACHABLE):
+            responseToUser += "Service not reachable"
+        elif (data.error_code == data.OTHER_ERROR):
+            responseToUser += "Other error"
+        elif (data.error_code == data.PERCEPTION_DETECTED_DIFFERENT_POSITION_THAN_EXPECTED):
+            responseToUser += "Different position than expected"
+        
+        #error codes for put down + 10
+        elif (data.error_code > 10 or data.error_code <= 15):
+            responseToUser += "Problem when putting down block"
+            
+        elif (data.error_code > 20 or data.error_code <= 25):
+            responseToUser += "Problem when picking up block"
+            
+    textToSpeech(responseToUser)
+    return data
+
+
 def main():
     # See http://g.co/cloud/speech/docs/languages
     # for a list of supported languages.
     language_code = 'en-US'  # a BCP-47 language tag
+    
+    #Declare feedback listener
+    rospy.init_node('listenerdispatch', anonymous=True)
+    
+    rospy.Subscriber('/dispatch_plan_feedback', DispatchPlanFeedback, dispatchCallback)
 
+        
     client = speech.SpeechClient()
     single_utterance = True
     config = types.RecognitionConfig(

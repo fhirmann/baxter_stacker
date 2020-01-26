@@ -7,6 +7,9 @@ import nltk
 
 from reasoning_planning.srv import StackGoalService, StackGoalServiceResponse, StackGoalServiceRequest
 from speech_recognition.srv import CommSpeechParser, CommSpeechParserResponse, CommSpeechParserRequest
+
+from reasoning_planning.msg import DispatchPlanFeedback
+
 from std_msgs.msg import String
 
 parser = CoreNLPParser(url='http://localhost:9000')
@@ -16,10 +19,16 @@ top_block = []
 below_block = []
 position = []
 
+absolute_block = False
+
+pubDispatch = rospy.Publisher('dispatchFeedback', DispatchPlanFeedback, queue_size=10)
+
 #Assign a semantic value to the request req depending on the string s
 def assignServiceValue(req, s, which_block):
     
     int_value = -1
+    global absolute
+    
     if (s == "red" or s == "Red"):
         int_value = req.RED
     elif (s == "blue" or s == "Blue"):
@@ -29,17 +38,38 @@ def assignServiceValue(req, s, which_block):
     elif (s == "green" or s == "Green"):
         int_value = req.GREEN
     elif (s == "left"):
-        int_value = req.LEFT_RELATIVE
+        if (absolute):
+            int_value = req.LEFT_ABSOLUTE
+        else :
+            int_value = req.LEFT_RELATIVE
     elif (s == "right"):
-        int_value = req.RIGHT_RELATIVE
+        if (absolute):
+            int_value = req.RIGHT_ABSOLUTE
+        else :
+            int_value = req.RIGHT_RELATIVE
     elif (s == "far"):
-        int_value = req.FAR_RELATIVE
+        if (absolute):
+            int_value = req.FAR_ABSOLUTE
+        else :
+            int_value = req.FAR_RELATIVE
     elif (s == "close"):
-        int_value = req.CLOSE_RELATIVE
+        if (absolute):
+            int_value = req.CLOSE_ABSOLUTE
+        else :
+            int_value = req.CLOSE_RELATIVE
     elif (s == "higher"):
-        int_value = req.HIGHER_RELATIVE
+        if (absolute):
+            int_value = req.HIGHER_ABSOLUTE
+        else :
+            int_value = req.HIGHER_RELATIVE
     elif (s == "lower"):
-        int_value = req.LOWER_RELATIVE
+        if (absolute):
+            int_value = req.HIGHER_ABSOLUTE
+        else :
+            int_value = req.HIGHER_RELATIVE
+            
+    elif (s == "absolute"):
+        absolute = True
         
     if (int_value != -1):
         if (which_block == 0):
@@ -48,7 +78,8 @@ def assignServiceValue(req, s, which_block):
             req.below_block_semantics.append(int_value)
         
     return req
-    
+
+
 #Use a recursive function to separate the elements from the parsed tree into exploitable data (4 lists containing the action, the position and the info for each block)  
 def getNodes(parent):
     ROOT = 'ROOT'
@@ -94,15 +125,17 @@ def sendToService(req):
     print (req)
 
     response = stack_goal_service(req)
-
+    
+    
     rospy.loginfo("response:")
     print (response)
+
     
     return responseHandler(response)
         
 #Callback function from the listener. Applies the Stanford Parser and creates the request
 def parse_create_scene(data):
-    global action, top_block, position, below_block
+    global action, top_block, position, below_block, absolute
     action = []
     top_block = []
     below_block = []
@@ -114,10 +147,13 @@ def parse_create_scene(data):
     print(request_list)
     
     req = StackGoalServiceRequest()
+    
     for i in range (len(request_list[1])): 
         req = assignServiceValue(req, request_list[1][i], 0)
+    absolute = False
     for i in range (len(request_list[3])): 
         req = assignServiceValue(req, request_list[3][i], 1)
+    absolute = False
     print(req.top_block_semantics)
     print(req.below_block_semantics)
     
@@ -133,10 +169,12 @@ def listener():
     rospy.init_node('speech_parser_request_server', anonymous=True)
 
     rospy.Service("speech_parser_request", CommSpeechParser, parse_create_scene)
-
     # spin() simply keeps python from exiting until this node is stopped
     rospy.spin()
+
+    
 
 if __name__ == '__main__':
     
     listener()
+    
