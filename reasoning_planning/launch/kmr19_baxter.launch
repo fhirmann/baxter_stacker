@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<launch>
+
+	<!-- Manipulation -->
+	<include file="$(find manipulation)/launch/kmr19_manipulation.launch">
+    </include>
+
+    <!-- Perception -->
+	<include file="$(find perception)/launch/perception_run.launch">
+    </include>
+
+    <!-- Reasoning & planning -->
+	<include file="$(find reasoning_planning)/launch/baxter_reason_plan_service_real.launch">
+    </include>
+
+    <!-- speech recognition & output -->
+	<include file="$(find speech_recognition)/launch/baxter_speech_recognition.launch">
+    </include>
+
+	
+
+</launch>
