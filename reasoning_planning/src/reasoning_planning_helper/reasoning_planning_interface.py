@@ -178,7 +178,7 @@ def create_knowledge_from_scene_db():
         # A low value is prefered to have low false positives but this can hinder to 
         # detect if the block is on the table/other block when having high measurement 
         # uncertainties.
-        epsilon = 60./1000. 
+        epsilon = 20./1000. 
 
         if is_epsilon_close(lower_face_pose_z, table_height, epsilon):
             # add new location position

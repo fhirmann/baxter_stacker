@@ -98,6 +98,7 @@ def handle_pick_up(req):
   if not arm_ctrl.executePlan(plan, reduce_speed=True):
     print("[kmr19_manipulation_server]: Robot failed during post grasp pose")
     arm_ctrl.moveToInitPosition(arm='left')
+    arm_ctrl.detachBlock(block_name=str(block.id))
     error_code = kmr19_pick_upResponse.PLAN_POST_GRASP
     return kmr19_pick_upResponse(success=False, error_code=error_code)
   rospy.sleep(1)
@@ -122,9 +123,6 @@ def handle_put_down(req):
 
   print("[kmr19_manipulation_server]: Got request to put down block at", req.end_position.pose.position.x, req.end_position.pose.position.y, req.end_position.pose.position.z)
   print("in frame ", req.end_position.header.frame_id)
-
-  #workaround for quarternion
-  #req.end_position.pose.orientation.w = 1.0
 
   #check if robot already holds block
   if not arm_ctrl.l_holds_block:

@@ -35,7 +35,10 @@ public:
 		NO_ERROR = 0,
 		CANNOT_GET_SCENE_FROM_PERCEPTION = 1,
 		CANNOT_GET_SCENE_FROM_SCENE_DB = 2,
-		BLOCK_LISTS_NOT_SIMILAR = 3
+		DIFFERENT_NUMBER_OF_BLOCKS_BETWEEN_PERCEPTION_AND_SCENE_DB = 3,
+		DETECTED_DIFFERENT_POSITION_THAN_EXPECTED = 4,
+		MULTIPLE_SAME_BLOCKS_IN_THE_SCENE_DETECTED = 5,
+		NO_OTHER_SAME_BLOCK_IN_THE_SCENE = 6
 	};
 
 protected:
@@ -52,7 +55,7 @@ protected:
 	bool getPerceptionSceneBlockList(std::vector<perception::Block> &block_list);
 	bool getSceneDbBlockList(std::vector<perception::Block> &block_list);
 
-	bool checkIfBlocksListsSimilar(std::vector<perception::Block> &block_list_1, std::vector<perception::Block> &block_list_2);
+	error_codes checkIfBlocksListsSimilar(std::vector<perception::Block> &block_list_1, std::vector<perception::Block> &block_list_2);
 
 	// same values as taken in reasoning_planning_interface.py
     static constexpr double EPSILON = 0.06;

@@ -141,8 +141,8 @@ def publish_request(our_request):
     speech_parser_request = rospy.ServiceProxy('speech_parser_request', CommSpeechParser)
     resp = speech_parser_request(our_request)
     
-    print(responseHandler(resp.errorsResponse))
-    
+    responseMsg = responseHandler(resp.errorsResponse)
+    rospy.loginfo(responseMsg)
     return resp
 
 
@@ -218,9 +218,12 @@ def listen_print_loop(responses):
             num_chars_printed = 0
 
 def dispatchCallback(data):
+
+    rospy.loginfo(data)
+
     responseToUser = ""
     if (data.success):
-        responseToUser = "Action complete"
+        responseToUser = "Action performed"
     else :
         responseToUser = "Action error : "
         
@@ -228,21 +231,33 @@ def dispatchCallback(data):
         if (data.error_code == data.MOTION_PLAN_NOT_FOUND):
             responseToUser += "Motion plan not found"
         elif (data.error_code == data.BLOCK_OUT_OF_RANGE):
-            responseToUser += "Block out of range"
+            responseToUser += "Block out of range. Bring it closer to the arm"
         elif (data.error_code == data.SERVICE_NOT_REACHABLE):
             responseToUser += "Service not reachable"
         elif (data.error_code == data.OTHER_ERROR):
-            responseToUser += "Other error"
+            responseToUser += "Other error type"
         elif (data.error_code == data.PERCEPTION_DETECTED_DIFFERENT_POSITION_THAN_EXPECTED):
-            responseToUser += "Different position than expected"
-        
+            responseToUser += "Different position than expected. Check if all blocks are correctly placed"
+        elif (data.error_code == data.MULTIPLE_SAME_BLOCKS_IN_THE_SCENE_DETECTED):
+            responseToUser += "Multiple identical blocks detected"
+        elif (data.error_code == data.NO_OTHER_SAME_BLOCK_IN_THE_SCENE):
+            responseToUser += "Blocks seems to have changed in the scene. Please try again"
+        elif (data.error_code == data.DIFFERENT_NUMBER_OF_BLOCKS_BETWEEN_PERCEPTION_AND_SCENE_DB):
+            responseToUser += "Different number of blocks between perception and scene"
         #error codes for put down + 10
-        elif (data.error_code > 10 or data.error_code <= 15):
-            responseToUser += "Problem when putting down block"
+        elif (data.error_code >= 11 and data.error_code < 20):
+            if (data.error_code == 12 or data.error_code == 14 or data.error_code == 15):
+                responseToUser += "Destination position unreachable. Move the block closer to the arm"
+            else :
+                responseToUser += "Problem occured when putting down block"
             
-        elif (data.error_code > 20 or data.error_code <= 25):
-            responseToUser += "Problem when picking up block"
-            
+        elif (data.error_code > 20 and data.error_code < 30):
+            if (data.error_code == 23 or data.error_code == 25 or data.error_code == 26):
+                responseToUser += "Block position unreachable. Move it to where it can be picked up"
+            else :
+                responseToUser += "Problem occured when picking up block"
+    
+    rospy.loginfo(responseToUser)       
     textToSpeech(responseToUser)
     return data
 

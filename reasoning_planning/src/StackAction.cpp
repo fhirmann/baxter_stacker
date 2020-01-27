@@ -112,8 +112,17 @@ bool StackAction::concreteCallback(const rosplan_dispatch_msgs::ActionDispatch::
             case CANNOT_GET_SCENE_FROM_SCENE_DB:
                 msg.error_code = reasoning_planning::DispatchPlanFeedback::SERVICE_NOT_REACHABLE;
                 break;
-            case BLOCK_LISTS_NOT_SIMILAR:
+            case DETECTED_DIFFERENT_POSITION_THAN_EXPECTED:
                 msg.error_code = reasoning_planning::DispatchPlanFeedback::PERCEPTION_DETECTED_DIFFERENT_POSITION_THAN_EXPECTED;
+                break;
+            case DIFFERENT_NUMBER_OF_BLOCKS_BETWEEN_PERCEPTION_AND_SCENE_DB:
+                msg.error_code = reasoning_planning::DispatchPlanFeedback::DIFFERENT_NUMBER_OF_BLOCKS_BETWEEN_PERCEPTION_AND_SCENE_DB;
+                break;
+            case MULTIPLE_SAME_BLOCKS_IN_THE_SCENE_DETECTED:
+                msg.error_code = reasoning_planning::DispatchPlanFeedback::MULTIPLE_SAME_BLOCKS_IN_THE_SCENE_DETECTED;
+                break;
+            case NO_OTHER_SAME_BLOCK_IN_THE_SCENE:
+                msg.error_code = reasoning_planning::DispatchPlanFeedback::NO_OTHER_SAME_BLOCK_IN_THE_SCENE;
                 break;
             default:
                 msg.error_code = reasoning_planning::DispatchPlanFeedback::OTHER_ERROR;

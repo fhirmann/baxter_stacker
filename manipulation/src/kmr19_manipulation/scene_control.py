@@ -121,8 +121,8 @@ class kmr19SceneControl:
     while (seconds - start < timeout) and not rospy.is_shutdown():
       # Test if we are in the expected state
       if ( len( self.scene.get_objects() ) == 0 ):
+        print(self.scene.get_known_object_names())
         return True
-
       # Sleep so that we give other threads time on the processor
       rospy.sleep(0.1)
       seconds = rospy.get_time()
@@ -135,6 +135,10 @@ class kmr19SceneControl:
 
     #empty scene objects
     del self.scene_blocks[:]
+
+    #initialize moveit scene again
+    self.addFixedSceneObjects() # does also clear scene before
+
     # get all blocks from
     data = msg_store.query(Block._type)
 

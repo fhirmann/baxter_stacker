@@ -168,47 +168,15 @@ bool ManipulateAction::get_where_on(std::string block_name, std::string& found_b
 bool ManipulateAction::get_block_top_position(std::string name, Pose& p)
 {
 
-    float height_from_top_face_to_table = 0;
-    std::string current_block_name = name;
-    std::string found_location_name = "";
-    std::string found_block_bottom_name = "";
-
-    while(!get_where_on_table(current_block_name, found_location_name))
-    {
-        if (!get_where_on(current_block_name, found_block_bottom_name))
-        {
-            // The block is not on the table and not on some other block -> it must be some other major database inconsistency
-            ROS_ERROR("The block %s is not on the table and not on some other block -> it must be some other major database inconsistency", current_block_name.c_str());
-            return false;
-        }
-
-        perception::Block block;
-        if (!get_block(current_block_name, block))
-        {
-            return false;
-        }
-
-        height_from_top_face_to_table += block.height;
-
-        current_block_name = found_block_bottom_name;
-
-    }
-
-    perception::Block block;
-    if (!get_block(current_block_name, block))
+    // get the top most block
+    perception::Block block_top;
+    if (!get_block(name, block_top))
     {
         return false;
     }
 
-    height_from_top_face_to_table += block.height;
-
-    if (!get_location_pose(found_location_name, p))
-    {
-        return false;
-    }
-
-    p.position.z = height_from_top_face_to_table;
-
+    p = block_top.pose.pose;
+    p.position.z += block_top.height / 2;
 
     return true;
 }
@@ -331,12 +299,12 @@ bool ManipulateAction::getSceneDbBlockList(std::vector<perception::Block> &block
     return true;
 }
 
-bool ManipulateAction::checkIfBlocksListsSimilar(std::vector<perception::Block> &block_list_1, std::vector<perception::Block> &block_list_2)
+ManipulateAction::error_codes ManipulateAction::checkIfBlocksListsSimilar(std::vector<perception::Block> &block_list_1, std::vector<perception::Block> &block_list_2)
 {
     if (block_list_1.size() != block_list_2.size())
     {
         ROS_INFO("ManipulateAction::checkIfBlocksListsSimilar(...): Different number of blocks between perception and scene DB");
-        return false;
+        return DIFFERENT_NUMBER_OF_BLOCKS_BETWEEN_PERCEPTION_AND_SCENE_DB;
     }
 
     for (auto &&block : block_list_1)
@@ -362,17 +330,17 @@ bool ManipulateAction::checkIfBlocksListsSimilar(std::vector<perception::Block> 
         {
             ROS_INFO("ManipulateAction::checkIfBlocksListsSimilar(...): There is a block ID not in the other list");
             ROS_INFO_STREAM( "other block: id = " << block.id << "; position: x = " << block.pose.pose.position.x << "; y = " << block.pose.pose.position.y << "; z = " << block.pose.pose.position.z );
-            return false;
+            return NO_OTHER_SAME_BLOCK_IN_THE_SCENE;
         }
         else if (same_block_id_counter > 1)
         {
             ROS_INFO("ManipulateAction::checkIfBlocksListsSimilar(...): There are multiple same block IDs in the other list");
             ROS_INFO_STREAM( "other block: id = " << block.id << "; position: x = " << block.pose.pose.position.x << "; y = " << block.pose.pose.position.y << "; z = " << block.pose.pose.position.z );
-            return false;
+            return MULTIPLE_SAME_BLOCKS_IN_THE_SCENE_DETECTED;
         } 
 
         double distance = getEuclideanDistance(block, block_list_2[same_block_id_position]);
-        const double distance_threshold = 2./100.;
+        const double distance_threshold = 3./100.;
 
         ROS_INFO("ManipulateAction::checkIfBlocksListsSimilar(...): found matching blocks (distance = %f; distance_threshold = %f):",distance, distance_threshold);
         ROS_INFO_STREAM( "first block: id = " << block.id << "; position: x = " << block.pose.pose.position.x << "; y = " << block.pose.pose.position.y << "; z = " << block.pose.pose.position.z );
@@ -384,14 +352,14 @@ bool ManipulateAction::checkIfBlocksListsSimilar(std::vector<perception::Block> 
             //ROS_INFO_STREAM( "first block: id = " << block.id << "; position: x = " << block.pose.pose.position.x << "; y = " << block.pose.pose.position.y << "; z = " << block.pose.pose.position.z );
             //ROS_INFO_STREAM( "second block: id = " << block_list_2[same_block_id_position].id << "; position: x =" << block_list_2[same_block_id_position].pose.pose.position.x << "; y = " << block_list_2[same_block_id_position].pose.pose.position.y << "; z = " << block_list_2[same_block_id_position].pose.pose.position.z );
         
-            return false;
+            return DETECTED_DIFFERENT_POSITION_THAN_EXPECTED;
         }
 
     }
 
     ROS_INFO("ManipulateAction::checkIfBlocksListsSimilar(...): Check successful and blocks are detected as similar");
 
-    return true;
+    return NO_ERROR;
 }
 
 double ManipulateAction::getEuclideanDistance(perception::Block block1, perception::Block block2)
@@ -433,11 +401,6 @@ ManipulateAction::error_codes ManipulateAction::checkSceneDbAgainstPerception()
         ROS_INFO_STREAM( "block: id = " << block.id << "; position: x = " << block.pose.pose.position.x << "; y = " << block.pose.pose.position.y << "; z = " << block.pose.pose.position.z );
     }
 
-    if (!checkIfBlocksListsSimilar(perception_block_list, scene_db_block_list))
-    {
-        return BLOCK_LISTS_NOT_SIMILAR;
-    }
-
-    return NO_ERROR;
+    return checkIfBlocksListsSimilar(perception_block_list, scene_db_block_list);
 
 }

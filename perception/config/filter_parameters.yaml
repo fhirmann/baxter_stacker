@@ -3,7 +3,7 @@ filter/table_x_high:  0.8
 filter/table_y_low :  0.0
 filter/table_y_high:  1.0
 filter/table_z_low :  -0.01
-filter/table_z_high:  0.3
+filter/table_z_high:  0.5
 filter/smoothing_radius: 0.04
 filter/plane_seg_threshold: 0.0075
 filter/plane_seg_max_iterations: 15
