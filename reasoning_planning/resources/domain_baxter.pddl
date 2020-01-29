@@ -17,7 +17,7 @@
 
 (:durative-action pick_up
     :parameters (?x - block ?loc - location)
-    :duration (= ?duration 1)
+    :duration (= ?duration 2)
     :condition (over all (and
                     (clear ?x) 
                     (on_table ?x ?loc)
@@ -95,7 +95,7 @@
 
 (:durative-action unstack
     :parameters (?x - block ?y - block)
-    :duration (= ?duration 1)
+    :duration (= ?duration 2)
     :condition (over all (and 
             (hand_empty)
             (on ?x ?y)
